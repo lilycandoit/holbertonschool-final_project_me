@@ -17,9 +17,8 @@ export default defineConfig({
     },
   },
   esbuild: {
-    // Remove console logs in production
-    drop: ['console', 'debugger'],
-    // But this will be overridden by our logger utility in development
+    // Don't drop console statements - we handle this with our logger utility
+    // which only logs in development mode
   },
   server: {
     port: 5173,

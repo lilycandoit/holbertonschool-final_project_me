@@ -252,7 +252,7 @@ Message:`;
 
       return text;
     } catch (error: any) {
-      console.error("❌ Error generating AI message:", error.message);
+      console.error("❌ Error generating AI message:", error);
       throw new Error("Failed to generate AI message. Please try again.");
     }
   }
@@ -285,7 +285,7 @@ Message:`;
 
       return suggestions;
     } catch (error: any) {
-      console.error("❌ Error generating message suggestions:", error.message);
+      console.error("❌ Error generating message suggestions:", error);
       return [
         "Thinking of you and sending beautiful blooms your way!",
         "Hope these flowers brighten your day as much as you brighten mine.",
