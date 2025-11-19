@@ -12,4 +12,7 @@ router.post("/message-suggestions", AIController.getMessageSuggestions);
 // GET /api/ai/health - Check AI service availability
 router.get("/health", AIController.checkHealth);
 
+// GET /api/ai/models - List available models
+router.get("/models", AIController.listModels);
+
 export default router;

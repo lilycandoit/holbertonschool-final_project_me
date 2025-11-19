@@ -16,9 +16,38 @@ export class AIService {
   private readonly primaryModelName = "gemini-2.5-flash";
   private readonly MAX_GENERATION_DURATION = 13500; // leave buffer under 15s frontend timeout
   private readonly fallbackModelNames = [
-    "gemini-1.5-flash",
-    "gemini-1.5-flash-8b",
+    // Only include models confirmed available for this API key (see /api/ai/models)
+    "gemini-2.5-flash-lite",
+    "gemini-2.0-flash",
+    "gemini-2.0-flash-001",
+    "gemini-2.0-flash-lite",
+    "gemini-2.0-flash-lite-001",
   ];
+  private readonly REQUEST_OPTIONS = { apiVersion: "v1" as const };
+
+  /**
+   * List available models for the configured API key (diagnostics)
+   */
+  async listAvailableModels(): Promise<{ name: string; displayName?: string; supportedGenerationMethods?: string[] }[]> {
+    const apiKey = process.env.GEMINI_API_KEY;
+    if (!apiKey) {
+      throw new Error("GEMINI_API_KEY is not configured");
+    }
+
+    const apiVersion = "v1";
+    const url = `https://generativelanguage.googleapis.com/${apiVersion}/models?key=${apiKey}`;
+    const resp = await fetch(url);
+    if (!resp.ok) {
+      const text = await resp.text();
+      throw new Error(`Failed to list models: ${resp.status} ${resp.statusText} - ${text}`);
+    }
+    const data = await resp.json() as { models?: any[] };
+    return (data.models || []).map((m) => ({
+      name: m.name,
+      displayName: m.displayName,
+      supportedGenerationMethods: m.supportedGenerationMethods,
+    }));
+  }
 
   // Tone mapping - defined once as class property
   private readonly TONE_MAPPING: Record<string, string> = {
@@ -40,7 +69,8 @@ export class AIService {
   };
 
   private getModel(modelName: string) {
-    return this.genAI.getGenerativeModel({ model: modelName });
+    // Force v1 API for all model calls to avoid v1beta 404s on supported models
+    return this.genAI.getGenerativeModel({ model: modelName }, this.REQUEST_OPTIONS);
   }
 
   private isTransientAIError(error: any): boolean {
@@ -52,6 +82,12 @@ export class AIService {
       msg.includes("429") ||
       msg.includes("quota")
     );
+  }
+
+  private isModelUnsupportedError(error: any): boolean {
+    const status = error?.status;
+    const msg = String(error?.message || "").toLowerCase();
+    return status === 404 || msg.includes("not found") || msg.includes("unsupported");
   }
 
   private sleep(ms: number) {
@@ -122,6 +158,7 @@ export class AIService {
           return response.text();
         } catch (err: any) {
           const isTransient = this.isTransientAIError(err);
+          const isUnsupported = this.isModelUnsupportedError(err);
 
           // Retry if transient and retries available
           if (isTransient && attempt < maxRetries) {
@@ -136,13 +173,17 @@ export class AIService {
             continue;
           }
 
-          // If transient error but no retries left, try next model
-          if (isTransient) {
+          // If transient (but retries exhausted) or unsupported, move to next model
+          if (isTransient || isUnsupported) {
+            if (isUnsupported) {
+              console.warn(`⚠️  Model ${modelName} not available (${err?.status || err?.code || 'unknown'}: ${err?.message || 'no message'}), trying next fallback...`);
+            }
             break;
           }
 
-          // Non-transient error: rethrow immediately
-          throw err;
+          // Non-transient errors: try next model instead of failing immediately
+          console.warn(`⚠️  Non-transient error on ${modelName}, trying next fallback...`);
+          break;
         }
       }
     }

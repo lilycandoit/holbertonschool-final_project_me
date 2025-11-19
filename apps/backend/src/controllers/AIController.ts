@@ -95,4 +95,20 @@ export class AIController {
         : "AI service is not configured",
     }, "Health check completed");
   }
+
+  /**
+   * GET /api/ai/models
+   * List available models for diagnostics
+   */
+  static async listModels(_req: Request, res: Response): Promise<void> {
+    try {
+      if (!AIController.ensureConfigured(res)) {
+        return;
+      }
+      const models = await aiService.listAvailableModels();
+      AIController.sendSuccess(res, { models }, "Model list fetched");
+    } catch (error: any) {
+      AIController.handleError(res, error, "Failed to fetch model list", "listModels");
+    }
+  }
 }
