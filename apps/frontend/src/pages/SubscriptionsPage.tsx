@@ -298,24 +298,24 @@ const SubscriptionsPage = () => {
                   <div className="subscription-actions">
                     {subscription.status === 'ACTIVE' ? (
                       <>
-                        <button className="action-btn pause-btn" disabled style={{ opacity: 0.5, cursor: 'not-allowed' }}>
+                        <button className="action-btn pause-btn" >
                           ⏸ Pause
                         </button>
-                        <button className="action-btn skip-btn" disabled style={{ opacity: 0.5, cursor: 'not-allowed' }}>
+                        <button className="action-btn skip-btn" >
                           ⏭ Skip Next
                         </button>
                       </>
                     ) : subscription.status === 'PAUSED' ? (
-                      <button className="action-btn resume-btn" disabled style={{ opacity: 0.5, cursor: 'not-allowed' }}>
+                      <button className="action-btn resume-btn" >
                         ▶ Resume
                       </button>
                     ) : null}
-                    <button className="action-btn cancel-btn" disabled style={{ opacity: 0.5, cursor: 'not-allowed' }}>
+                    <button className="action-btn cancel-btn" >
                       Cancel
                     </button>
-                    <span className="coming-soon-text" style={{ fontSize: '0.85rem', color: '#888', marginLeft: '1rem' }}>
+                    {/* <span className="coming-soon-text" style={{ fontSize: '0.85rem', color: '#888', marginLeft: '1rem' }}>
                       (Coming Soon)
-                    </span>
+                    </span> */}
                   </div>
                 </div>
               </div>
