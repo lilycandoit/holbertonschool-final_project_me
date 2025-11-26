@@ -380,13 +380,184 @@ async function main() {
   console.log('👤 Skipping test users - production uses Auth0 authentication');
   console.log('🏠 Skipping test addresses - users will create their own');
 
+  // ============================================
+  // 🚚 DELIVERY ZONES - Melbourne Metro
+  // ============================================
+  console.log('🚚 Upserting Melbourne delivery zones...');
+
+  const deliveryZones = [
+    {
+      name: 'Melbourne CBD',
+      description: 'Central Business District - Express delivery available',
+      zipCodes: ['3000', '3001', '3002', '3003', '3004', '3005', '3006', '3008'],
+      cities: ['Melbourne', 'Melbourne CBD', 'Docklands', 'West Melbourne', 'North Melbourne'],
+
+      // Zone center coordinates (Parliament House, Melbourne)
+      centerLatitude: -37.8136,
+      centerLongitude: 144.9631,
+      radiusKm: 5.0,
+
+      // Pricing (in cents)
+      standardCostCents: 899,   // $8.99
+      expressCostCents: 1599,   // $15.99
+      sameDayCostCents: 2999,   // $29.99
+
+      // Delivery timing
+      standardDeliveryDays: 3,
+      expressDeliveryDays: 1,
+      sameDayAvailable: true,
+      sameDayCutoffHour: 12,  // 12 PM cutoff for same-day
+
+      // Special features
+      freeDeliveryThreshold: 10000,  // Free delivery over $100
+      weekendDelivery: true,
+      holidayDelivery: false,
+      isActive: true,
+    },
+    {
+      name: 'Inner North Melbourne',
+      description: 'Carlton, Fitzroy, Brunswick - Fast delivery zone',
+      zipCodes: ['3051', '3052', '3053', '3054', '3055', '3056', '3057', '3058', '3065', '3066', '3067', '3068'],
+      cities: ['Carlton', 'Carlton North', 'Fitzroy', 'Fitzroy North', 'Brunswick', 'Brunswick East', 'Brunswick West', 'Coburg', 'Parkville', 'Clifton Hill', 'Northcote', 'Thornbury'],
+
+      // Zone center (Lygon Street, Carlton)
+      centerLatitude: -37.7963,
+      centerLongitude: 144.9688,
+      radiusKm: 8.0,
+
+      standardCostCents: 899,
+      expressCostCents: 1599,
+      sameDayCostCents: null,  // Same-day not available
+
+      standardDeliveryDays: 3,
+      expressDeliveryDays: 2,
+      sameDayAvailable: false,
+      sameDayCutoffHour: null,
+
+      freeDeliveryThreshold: 10000,
+      weekendDelivery: true,
+      holidayDelivery: false,
+      isActive: true,
+    },
+    {
+      name: 'Inner East Melbourne',
+      description: 'Richmond, South Yarra, Toorak - Premium delivery zone',
+      zipCodes: ['3121', '3141', '3142', '3143', '3144', '3145', '3146', '3147', '3148'],
+      cities: ['Richmond', 'South Yarra', 'Prahran', 'Armadale', 'Malvern', 'Toorak', 'Hawthorn', 'Kew', 'Camberwell'],
+
+      // Zone center (Chapel Street, South Yarra)
+      centerLatitude: -37.8397,
+      centerLongitude: 144.9937,
+      radiusKm: 10.0,
+
+      standardCostCents: 899,
+      expressCostCents: 1599,
+      sameDayCostCents: 2999,
+
+      standardDeliveryDays: 3,
+      expressDeliveryDays: 2,
+      sameDayAvailable: true,
+      sameDayCutoffHour: 14,  // 2 PM cutoff
+
+      freeDeliveryThreshold: 12000,  // $120 for free delivery (premium area)
+      weekendDelivery: true,
+      holidayDelivery: false,
+      isActive: true,
+    },
+    {
+      name: 'Inner South Melbourne',
+      description: 'St Kilda, Port Melbourne, Albert Park - Coastal delivery',
+      zipCodes: ['3182', '3183', '3184', '3185', '3186', '3187', '3206', '3207'],
+      cities: ['St Kilda', 'St Kilda East', 'Elwood', 'Brighton', 'Brighton East', 'Port Melbourne', 'Albert Park', 'Middle Park'],
+
+      // Zone center (St Kilda Beach)
+      centerLatitude: -37.8679,
+      centerLongitude: 144.9745,
+      radiusKm: 8.0,
+
+      standardCostCents: 899,
+      expressCostCents: 1599,
+      sameDayCostCents: null,
+
+      standardDeliveryDays: 3,
+      expressDeliveryDays: 2,
+      sameDayAvailable: false,
+      sameDayCutoffHour: null,
+
+      freeDeliveryThreshold: 10000,
+      weekendDelivery: true,
+      holidayDelivery: false,
+      isActive: true,
+    },
+    {
+      name: 'Inner West Melbourne',
+      description: 'Footscray, Yarraville, Williamstown - Western suburbs',
+      zipCodes: ['3011', '3012', '3013', '3015', '3016', '3019', '3020'],
+      cities: ['Footscray', 'Footscray West', 'Yarraville', 'Seddon', 'Newport', 'Williamstown', 'Altona', 'Sunshine'],
+
+      // Zone center (Footscray)
+      centerLatitude: -37.7990,
+      centerLongitude: 144.9007,
+      radiusKm: 12.0,
+
+      standardCostCents: 1099,  // $10.99 (further from CBD)
+      expressCostCents: 1799,   // $17.99
+      sameDayCostCents: null,
+
+      standardDeliveryDays: 4,
+      expressDeliveryDays: 2,
+      sameDayAvailable: false,
+      sameDayCutoffHour: null,
+
+      freeDeliveryThreshold: 10000,
+      weekendDelivery: false,  // Limited weekend service
+      holidayDelivery: false,
+      isActive: true,
+    },
+    {
+      name: 'Outer Metro Melbourne',
+      description: 'Outer suburbs - Extended delivery area',
+      zipCodes: ['3073', '3074', '3075', '3076', '3150', '3151', '3152', '3168', '3169', '3170', '3171', '3172', '3173', '3174', '3175', '3177', '3178', '3179', '3188', '3189', '3190', '3191', '3192', '3193', '3194', '3195'],
+      cities: ['Reservoir', 'Glen Waverley', 'Wheelers Hill', 'Oakleigh', 'Dandenong', 'Clayton', 'Cheltenham', 'Frankston', 'Moorabbin', 'Bentleigh', 'Hampton'],
+
+      // Zone center (Glen Waverley - eastern hub)
+      centerLatitude: -37.8770,
+      centerLongitude: 145.1630,
+      radiusKm: 20.0,
+
+      standardCostCents: 1299,  // $12.99 (outer suburbs)
+      expressCostCents: 1999,   // $19.99
+      sameDayCostCents: null,
+
+      standardDeliveryDays: 5,
+      expressDeliveryDays: 3,
+      sameDayAvailable: false,
+      sameDayCutoffHour: null,
+
+      freeDeliveryThreshold: 15000,  // $150 for free delivery
+      weekendDelivery: false,
+      holidayDelivery: false,
+      isActive: true,
+    },
+  ];
+
+  for (const zone of deliveryZones) {
+    await prisma.deliveryZone.upsert({
+      where: { name: zone.name },
+      update: zone,
+      create: zone,
+    });
+  }
+
   console.log('✅ Seeding completed successfully!');
   console.log(`📊 Created:`);
   console.log(`   ${categories.length} categories`);
   console.log(`   ${sampleProducts.length} products`);
+  console.log(`   ${deliveryZones.length} delivery zones (Melbourne Metro)`);
   console.log(`\n🎉 Production database ready!`);
   console.log(`   Users will be created via Auth0 authentication`);
   console.log(`   Products are ready for browsing and purchase`);
+  console.log(`   Delivery zones configured for Melbourne metro area`);
 }
 
 main()

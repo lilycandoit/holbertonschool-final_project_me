@@ -296,6 +296,11 @@ model Order {
   shippingCountry   String        @default("AU")
   shippingPhone     String?
 
+  // Google Distance Matrix integration (cache coordinates and distance)
+  deliveryDistanceKm Float?       // Calculated distance for shipping cost
+  deliveryLatitude   Float?       // Destination coordinates
+  deliveryLongitude  Float?       // Destination coordinates
+
   // Billing address (sender/payer address)
   billingFirstName  String?
   billingLastName   String?
@@ -313,6 +318,7 @@ model Order {
   subscription    Subscription? @relation(fields: [subscriptionId], references: [id])
   items           OrderItem[]
   payments        Payment[]
+  sendleQuote     SendleQuote?  // Sendle shipping quote (if applicable)
 
   createdAt       DateTime      @default(now())
   updatedAt       DateTime      @updatedAt
@@ -461,6 +467,11 @@ model DeliveryZone {
   zipCodes        String[]     // Array of supported zip codes
   cities          String[]     // Array of supported cities
 
+  // Google Maps integration (zone center for distance calculation)
+  centerLatitude  Float?       // Zone center latitude
+  centerLongitude Float?       // Zone center longitude
+  radiusKm        Float?       @default(50)  // Delivery radius from center
+
   // Delivery options and pricing (all in cents)
   standardCostCents   Int      // Standard delivery cost
   expressCostCents    Int?     // Express delivery cost (if available)
@@ -539,6 +550,15 @@ model DeliveryTracking {
   deliveryNotes   String?   // Special delivery instructions
   deliveryPhoto   String?   // Photo proof of delivery
 
+  // Sendle integration fields
+  sendleOrderId       String?   @unique  // Sendle order reference
+  sendleQuoteId       String?            // Quote used for this shipment
+  sendleTrackingUrl   String?            // Direct Sendle tracking link
+  distanceKm          Float?             // Distance from origin to destination
+  googleDistanceMatrixResponse Json?    // Cache Google API response
+  sendleWebhookEvents Json[]    @default([])  // Store webhook payloads
+  lastWebhookReceivedAt DateTime?        // Track webhook freshness
+
   // Tracking events
   events          TrackingEvent[]
 
@@ -592,5 +612,52 @@ model CartItem {
   updatedAt DateTime @updatedAt
 
   @@map("cart_items")
+}
+
+// ============================================
+// 📦 SENDLE INTEGRATION
+// ============================================
+model SendleQuote {
+  id              String    @id @default(cuid())
+  orderId         String?   @unique
+  quoteId         String    @unique  // From Sendle API
+  priceCents      Int
+  etaDays         Int
+  pickupSuburb    String
+  deliverySuburb  String
+  deliveryPostcode String
+  weightKg        Float     @default(1.0)
+  volumeCm3       Float?
+  expiresAt       DateTime
+  isSelected      Boolean   @default(false)
+
+  order           Order?    @relation(fields: [orderId], references: [id])
+
+  createdAt       DateTime  @default(now())
+
+  @@index([orderId])
+  @@index([expiresAt])
+  @@map("sendle_quotes")
+}
+
+// ============================================
+// 🔗 WEBHOOK LOGGING (Debugging & Audit)
+// ============================================
+model WebhookLog {
+  id          String    @id @default(cuid())
+  provider    String    // "SENDLE", "STRIPE"
+  eventType   String
+  payload     Json
+  status      String    // "PROCESSED", "FAILED", "PENDING"
+  errorMessage String?
+  orderId     String?
+  trackingId  String?
+
+  createdAt   DateTime  @default(now())
+  processedAt DateTime?
+
+  @@index([provider, eventType])
+  @@index([createdAt])
+  @@map("webhook_logs")
 }
 

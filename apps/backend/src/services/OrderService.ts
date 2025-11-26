@@ -9,6 +9,7 @@ import {
   DeliveryTracking,
 } from "@prisma/client";
 import { EmailService } from "./EmailService";
+import { ShippingCalculator } from "./delivery/shippingCalculator";
 
 export interface CreateOrderData {
   userId?: string;
@@ -76,6 +77,7 @@ export interface OrderWithDetails extends Order {
 
 export class OrderService {
   private emailService: EmailService;
+  private shippingCalculator: ShippingCalculator;
 
   // Reusable Prisma include structure for order queries
   private readonly orderInclude = {
@@ -132,6 +134,7 @@ export class OrderService {
 
   constructor() {
     this.emailService = new EmailService();
+    this.shippingCalculator = new ShippingCalculator();
   }
 
   // Create new order (guest or user)
@@ -145,7 +148,7 @@ export class OrderService {
     // Calculate shipping based on delivery type, zip code, and delivery dates
     const shippingCents = await this.calculateShipping(
       orderData.deliveryType,
-      orderData.shippingAddress.zipCode,
+      orderData.shippingAddress,
       subtotalCents,
       orderData.items
     );
@@ -430,7 +433,17 @@ export class OrderService {
 
   private async calculateShipping(
     deliveryType: DeliveryType,
-    zipCode: string,
+    shippingAddress: {
+      firstName: string;
+      lastName: string;
+      street1: string;
+      street2?: string;
+      city: string;
+      state: string;
+      zipCode: string;
+      country?: string;
+      phone?: string;
+    },
     subtotalCents: number,
     items: Array<{ requestedDeliveryDate?: Date }>
   ): Promise<number> {
@@ -439,7 +452,7 @@ export class OrderService {
       return 0;
     }
 
-    // Group items by delivery date
+    // Group items by delivery date to handle multiple delivery charges
     const deliveryGroups = new Map<string, number>();
     items.forEach((item) => {
       const dateKey = item.requestedDeliveryDate
@@ -449,59 +462,60 @@ export class OrderService {
       deliveryGroups.set(dateKey, (deliveryGroups.get(dateKey) || 0) + 1);
     });
 
-    // Calculate shipping fee per delivery group
     const numberOfDeliveries = deliveryGroups.size;
 
-    // Check if delivery zone offers free shipping
+    // Check if delivery zone offers free shipping (only applies if single delivery)
     const deliveryZone = await prisma.deliveryZone.findFirst({
       where: {
-        zipCodes: { has: zipCode },
+        zipCodes: { has: shippingAddress.zipCode },
         isActive: true,
       },
     });
 
-    // Free shipping over threshold (only applies if single delivery)
     if (numberOfDeliveries === 1 && deliveryZone?.freeDeliveryThreshold && subtotalCents >= deliveryZone.freeDeliveryThreshold) {
+      console.log(`🎁 Free shipping applied (order over $${deliveryZone.freeDeliveryThreshold / 100})`);
       return 0;
     }
 
-    // Determine cost per delivery
-    let costPerDelivery = 0;
+    // Use ShippingCalculator's intelligent 4-tier fallback to get base cost
+    try {
+      const fullAddress = shippingAddress.street2
+        ? `${shippingAddress.street1}, ${shippingAddress.street2}, ${shippingAddress.city}`
+        : `${shippingAddress.street1}, ${shippingAddress.city}`;
 
-    // Use delivery zone pricing if available
-    if (deliveryZone) {
-      switch (deliveryType) {
-        case DeliveryType.STANDARD:
-          costPerDelivery = deliveryZone.standardCostCents;
-          break;
-        case DeliveryType.EXPRESS:
-          costPerDelivery = deliveryZone.expressCostCents || deliveryZone.standardCostCents;
-          break;
-        case DeliveryType.SAME_DAY:
-          costPerDelivery = deliveryZone.sameDayCostCents || deliveryZone.expressCostCents || deliveryZone.standardCostCents;
-          break;
-        default:
-          costPerDelivery = deliveryZone.standardCostCents;
+      const shippingResult = await this.shippingCalculator.calculate({
+        deliveryPostcode: shippingAddress.zipCode,
+        deliverySuburb: shippingAddress.city,
+        deliveryAddress: fullAddress,
+        orderValueCents: subtotalCents,
+        weightKg: 1.0, // TODO: Calculate actual weight based on products
+      });
+
+      console.log(`💰 Shipping calculated via ${shippingResult.method}: $${(shippingResult.costCents / 100).toFixed(2)}, ETA: ${shippingResult.estimatedDays} days`);
+
+      // Base cost per delivery from calculator
+      const costPerDelivery = shippingResult.costCents;
+
+      // Total shipping = cost per delivery × number of unique delivery dates
+      const totalShippingCents = costPerDelivery * numberOfDeliveries;
+
+      if (numberOfDeliveries > 1) {
+        console.log(`📦 Multiple deliveries (${numberOfDeliveries}): $${(costPerDelivery / 100).toFixed(2)} × ${numberOfDeliveries} = $${(totalShippingCents / 100).toFixed(2)}`);
       }
-    } else {
-      // Fallback pricing (matches deliveryService.ts config)
-      switch (deliveryType) {
-        case DeliveryType.STANDARD:
-          costPerDelivery = 899; // $8.99 AUD
-          break;
-        case DeliveryType.EXPRESS:
-          costPerDelivery = 1599; // $15.99 AUD
-          break;
-        case DeliveryType.SAME_DAY:
-          costPerDelivery = 2999; // $29.99 AUD
-          break;
-        default:
-          costPerDelivery = 899;
-      }
+
+      return totalShippingCents;
+
+    } catch (error) {
+      // If ShippingCalculator fails completely (shouldn't happen with 4-tier fallback),
+      // use absolute emergency fallback
+      console.error('❌ ShippingCalculator failed unexpectedly:', error);
+
+      const emergencyFallbackCents = 899; // $8.99 standard delivery
+      const totalShippingCents = emergencyFallbackCents * numberOfDeliveries;
+
+      console.warn(`⚠️  Using emergency fallback: $${(totalShippingCents / 100).toFixed(2)}`);
+      return totalShippingCents;
     }
-
-    // Total shipping = cost per delivery × number of unique delivery dates
-    return costPerDelivery * numberOfDeliveries;
   }
 
   private async createDeliveryTracking(order: OrderWithDetails): Promise<void> {
