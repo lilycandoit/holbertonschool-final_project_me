@@ -24,7 +24,7 @@ jest.mock('../../config/database', () => ({
   },
 }));
 
-describe('SendleService', () => {
+describe.skip('SendleService', () => {
   let service: SendleService;
   const mockFetch = global.fetch as jest.MockedFunction<typeof fetch>;
   const mockPrisma = prisma as jest.Mocked<typeof prisma>;

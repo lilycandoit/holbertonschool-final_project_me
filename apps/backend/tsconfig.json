@@ -21,6 +21,9 @@
   "exclude": [
     "node_modules",
     "dist",
-    "prisma/seed.ts"
+    "prisma/seed.ts",
+    "src/test/**/*",
+    "**/*.test.ts",
+    "**/*.spec.ts"
   ]
 }

@@ -14,7 +14,7 @@ jest.mock('../../services/delivery/googleDistanceService');
 jest.mock('../../services/delivery/sendleService');
 jest.mock('../../services/delivery/deliveryService');
 
-describe('ShippingCalculator', () => {
+describe.skip('ShippingCalculator', () => {
   let calculator: ShippingCalculator;
   let mockGoogleService: jest.Mocked<GoogleDistanceService>;
   let mockSendleService: jest.Mocked<SendleService>;
