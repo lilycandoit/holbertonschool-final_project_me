@@ -34,66 +34,8 @@ resource "aws_security_group" "eb" {
   }
 }
 
-# IAM Role for EB instances
-resource "aws_iam_role" "eb_ec2_role" {
-  name = "${var.project_name}-eb-ec2-role"
-
-  assume_role_policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [
-      {
-        Action = "sts:AssumeRole"
-        Effect = "Allow"
-        Principal = {
-          Service = "ec2.amazonaws.com"
-        }
-      }
-    ]
-  })
-}
-
-resource "aws_iam_role_policy_attachment" "eb_web_tier" {
-  role       = aws_iam_role.eb_ec2_role.name
-  policy_arn = "arn:aws:iam::aws:policy/AWSElasticBeanstalkWebTier"
-}
-
-resource "aws_iam_role_policy_attachment" "eb_multicontainer_docker" {
-  role       = aws_iam_role.eb_ec2_role.name
-  policy_arn = "arn:aws:iam::aws:policy/AWSElasticBeanstalkMulticontainerDocker"
-}
-
-resource "aws_iam_instance_profile" "eb_ec2_profile" {
-  name = "${var.project_name}-eb-ec2-profile"
-  role = aws_iam_role.eb_ec2_role.name
-}
-
-# IAM Role for EB service
-resource "aws_iam_role" "eb_service_role" {
-  name = "${var.project_name}-eb-service-role"
-
-  assume_role_policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [
-      {
-        Action = "sts:AssumeRole"
-        Effect = "Allow"
-        Principal = {
-          Service = "elasticbeanstalk.amazonaws.com"
-        }
-      }
-    ]
-  })
-}
-
-resource "aws_iam_role_policy_attachment" "eb_service" {
-  role       = aws_iam_role.eb_service_role.name
-  policy_arn = "arn:aws:iam::aws:policy/service-role/AWSElasticBeanstalkService"
-}
-
-resource "aws_iam_role_policy_attachment" "eb_enhanced_health" {
-  role       = aws_iam_role.eb_service_role.name
-  policy_arn = "arn:aws:iam::aws:policy/service-role/AWSElasticBeanstalkEnhancedHealth"
-}
+# IAM roles are now managed by the IAM module
+# This module receives IAM role references via variables
 
 # Elastic Beanstalk Application
 resource "aws_elastic_beanstalk_application" "backend" {
@@ -140,6 +82,20 @@ resource "aws_elastic_beanstalk_environment" "backend" {
     namespace = "aws:elasticbeanstalk:environment:proxy"
     name      = "ProxyServer"
     value     = "nginx"
+  }
+
+  # IAM Instance Profile
+  setting {
+    namespace = "aws:autoscaling:launchconfiguration"
+    name      = "IamInstanceProfile"
+    value     = var.iam_instance_profile_name
+  }
+
+  # IAM Service Role
+  setting {
+    namespace = "aws:elasticbeanstalk:environment"
+    name      = "ServiceRole"
+    value     = var.iam_service_role_arn
   }
 
   # Environment Variables

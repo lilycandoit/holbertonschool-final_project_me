@@ -1,14 +1,14 @@
 variable "project_name" {
-  description = "Project name for resource naming"
+  description = "The name of the project."
   type        = string
 }
 
 variable "environment" {
-  description = "Environment name"
+  description = "The name of the environment."
   type        = string
 }
 
 variable "backend_api_url" {
-  description = "Backend API URL for CORS configuration"
+  description = "The URL of the backend API."
   type        = string
 }

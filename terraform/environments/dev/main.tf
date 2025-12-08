@@ -13,7 +13,7 @@ terraform {
 
   backend "s3" {
     bucket         = "flora-terraform-state-570006208612"
-    key            = "production/terraform.tfstate"
+    key            = "dev/terraform.tfstate"
     region         = "ap-southeast-2"
     dynamodb_table = "flora-terraform-locks"
   }
@@ -68,22 +68,13 @@ data "aws_ssm_parameter" "smtp_pass" {
 }
 
 module "networking" {
-  source       = "../../modules/networking"
+  source       = "../../../modules/networking"
   project_name = var.project_name
-}
-
-# IAM Module
-module "iam" {
-  source = "../../modules/iam"
-
-  project_name = var.project_name
-  environment  = var.environment
-  aws_region   = var.aws_region
 }
 
 # RDS Module
 module "rds" {
-  source = "../../modules/rds"
+  source = "../../../modules/rds"
 
   project_name          = var.project_name
   environment           = var.environment
@@ -97,16 +88,12 @@ module "rds" {
 
 # Elastic Beanstalk Module (Backend)
 module "elastic_beanstalk" {
-  source = "../../modules/elastic_beanstalk"
+  source = "../../../modules/elastic_beanstalk"
 
   project_name       = var.project_name
   environment        = var.environment
   vpc_id             = module.networking.vpc_id
   public_subnet_ids  = module.networking.public_subnet_ids
-
-  # IAM roles from IAM module
-  iam_instance_profile_name = module.iam.eb_ec2_instance_profile_name
-  iam_service_role_arn      = module.iam.eb_service_role_arn
 
   # Environment variables for backend
   env_vars = {
@@ -129,7 +116,7 @@ module "elastic_beanstalk" {
 
 # S3 + CloudFront Module (Frontend)
 module "s3_cloudfront" {
-  source = "../../modules/s3_cloudfront"
+  source = "../../../modules/s3_cloudfront"
 
   project_name    = var.project_name
   environment     = var.environment

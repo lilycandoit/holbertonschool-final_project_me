@@ -23,3 +23,13 @@ variable "env_vars" {
   type        = map(string)
   default     = {}
 }
+
+variable "iam_instance_profile_name" {
+  description = "IAM instance profile name for EB EC2 instances"
+  type        = string
+}
+
+variable "iam_service_role_arn" {
+  description = "IAM service role ARN for Elastic Beanstalk"
+  type        = string
+}

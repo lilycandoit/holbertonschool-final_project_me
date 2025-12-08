@@ -1,0 +1,15 @@
+# Example variables for the 'dev' environment.
+# Rename this file to 'terraform.tfvars' and fill in the values.
+
+aws_region     = "ap-southeast-2"
+project_name   = "flora"
+environment    = "dev"
+database_name  = "flora_db_dev"
+database_username = "your_db_username"
+auth0_domain   = "your_auth0_domain"
+auth0_client_id = "your_auth0_client_id"
+auth0_audience = "your_auth0_audience"
+stripe_publishable_key = "your_stripe_publishable_key"
+smtp_host      = "smtp.gmail.com"
+smtp_port      = "587"
+smtp_secure    = "false"

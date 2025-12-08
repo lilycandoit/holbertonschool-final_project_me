@@ -38,7 +38,7 @@ output "database_name" {
 
 output "vpc_id" {
   description = "VPC ID"
-  value       = module.networking.vpc_id
+  value       = aws_vpc.main.id
 }
 
 # Summary output
