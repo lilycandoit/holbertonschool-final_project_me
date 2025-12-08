@@ -83,7 +83,7 @@ export class GoogleDistanceService {
    * Check if service is properly configured
    */
   private isConfigured(): boolean {
-    return !!this.apiKey && DELIVERY_FEATURES.USE_GOOGLE_DISTANCE;
+    return !!this.apiKey;
   }
 
   /**

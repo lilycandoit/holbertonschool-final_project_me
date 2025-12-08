@@ -121,63 +121,11 @@ resource "aws_elastic_beanstalk_environment" "backend" {
     value     = join(",", var.public_subnet_ids)
   }
 
-  # Attach the load balancer to the same public subnets
-  setting {
-    namespace = "aws:ec2:vpc"
-    name      = "ELBSubnets"
-    value     = join(",", var.public_subnet_ids)
-  }
-
-  setting {
-    namespace = "aws:ec2:vpc"
-    name      = "AssociatePublicIpAddress"
-    value     = "true"
-  }
-
-  # Instance Configuration (Free Tier)
-  setting {
-    namespace = "aws:autoscaling:launchconfiguration"
-    name      = "InstanceType"
-    value     = "t3.micro" # Free tier eligible (newer regions prefer t3.micro)
-  }
-
-  setting {
-    namespace = "aws:autoscaling:launchconfiguration"
-    name      = "IamInstanceProfile"
-    value     = aws_iam_instance_profile.eb_ec2_profile.name
-  }
-
-  setting {
-    namespace = "aws:autoscaling:launchconfiguration"
-    name      = "SecurityGroups"
-    value     = aws_security_group.eb.id
-  }
-
-  # Auto Scaling (Single instance for free tier)
-  setting {
-    namespace = "aws:autoscaling:asg"
-    name      = "MinSize"
-    value     = "1"
-  }
-
-  setting {
-    namespace = "aws:autoscaling:asg"
-    name      = "MaxSize"
-    value     = "1"
-  }
-
-  # Service Role
-  setting {
-    namespace = "aws:elasticbeanstalk:environment"
-    name      = "ServiceRole"
-    value     = aws_iam_role.eb_service_role.name
-  }
-
-  # Environment Type - Load balanced (required for ALB + CloudFront)
+  # Environment Type - Single instance for free tier
   setting {
     namespace = "aws:elasticbeanstalk:environment"
     name      = "EnvironmentType"
-    value     = "LoadBalanced"
+    value     = "SingleInstance"
   }
 
   # Health Reporting - Basic (enhanced requires load balancer)
@@ -232,15 +180,15 @@ resource "aws_cloudfront_distribution" "backend" {
   comment         = "Flora Marketplace Backend API - HTTPS for Stripe"
   price_class     = "PriceClass_100" # Use only North America & Europe (cheapest)
 
-  # Use the Elastic Beanstalk load balancer as origin
+  # Use the Elastic Beanstalk environment's public DNS as origin
   origin {
-    domain_name = aws_elastic_beanstalk_environment.backend.cname
-    origin_id   = "ELB-${aws_elastic_beanstalk_environment.backend.name}"
+    domain_name = aws_elastic_beanstalk_environment.backend.endpoint_url
+    origin_id   = "EB-${aws_elastic_beanstalk_environment.backend.name}"
 
     custom_origin_config {
       http_port              = 80
       https_port             = 443
-      origin_protocol_policy = "http-only" # ELB doesn't have SSL yet
+      origin_protocol_policy = "http-only"
       origin_ssl_protocols   = ["TLSv1.2"]
     }
   }
@@ -248,7 +196,7 @@ resource "aws_cloudfront_distribution" "backend" {
   default_cache_behavior {
     allowed_methods  = ["DELETE", "GET", "HEAD", "OPTIONS", "PATCH", "POST", "PUT"]
     cached_methods   = ["GET", "HEAD", "OPTIONS"]
-    target_origin_id = "ELB-${aws_elastic_beanstalk_environment.backend.name}"
+    target_origin_id = "EB-${aws_elastic_beanstalk_environment.backend.name}"
 
     forwarded_values {
       query_string = true
@@ -271,7 +219,7 @@ resource "aws_cloudfront_distribution" "backend" {
     path_pattern     = "/api/webhooks/*"
     allowed_methods  = ["DELETE", "GET", "HEAD", "OPTIONS", "PATCH", "POST", "PUT"]
     cached_methods   = ["GET", "HEAD", "OPTIONS"]
-    target_origin_id = "ELB-${aws_elastic_beanstalk_environment.backend.name}"
+    target_origin_id = "EB-${aws_elastic_beanstalk_environment.backend.name}"
 
     forwarded_values {
       query_string = true

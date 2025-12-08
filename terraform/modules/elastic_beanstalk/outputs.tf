@@ -10,17 +10,12 @@ output "environment_name" {
 
 output "application_url" {
   description = "Application URL"
-  value       = "http://${aws_elastic_beanstalk_environment.backend.endpoint_url}"
+  value       = aws_elastic_beanstalk_environment.backend.endpoint_url
 }
 
 output "security_group_id" {
   description = "Security group ID for EB instances"
   value       = aws_security_group.eb.id
-}
-
-output "cname" {
-  description = "CNAME for the environment"
-  value       = aws_elastic_beanstalk_environment.backend.cname
 }
 
 output "cloudfront_url" {

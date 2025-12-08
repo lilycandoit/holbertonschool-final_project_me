@@ -20,6 +20,17 @@ process.env.SMTP_PASS = process.env.SMTP_PASS || 'test-password';
 process.env.DATABASE_URL = process.env.DATABASE_URL || 'postgresql://test:test@localhost:5432/flora_test';
 process.env.STRIPE_SECRET_KEY = process.env.STRIPE_SECRET_KEY || 'sk_test_mock_key';
 
+// Delivery system test environment variables
+process.env.GOOGLE_MAPS_API_KEY = process.env.GOOGLE_MAPS_API_KEY || 'test-google-api-key';
+process.env.SENDLE_API_ID = process.env.SENDLE_API_ID || 'test-sendle-id';
+process.env.SENDLE_API_KEY = process.env.SENDLE_API_KEY || 'test-sendle-key';
+process.env.SENDLE_SANDBOX_MODE = 'true'; // Always true for tests
+process.env.DELIVERY_ORIGIN_LAT = '-37.8136';
+process.env.DELIVERY_ORIGIN_LNG = '144.9631';
+process.env.ENABLE_GOOGLE_DISTANCE = 'false'; // Default disabled
+process.env.ENABLE_SENDLE_QUOTES = 'false'; // Default disabled
+process.env.ENABLE_SENDLE_TRACKING = 'false'; // Default disabled
+
 // Global test timeout
 jest.setTimeout(10000);
 

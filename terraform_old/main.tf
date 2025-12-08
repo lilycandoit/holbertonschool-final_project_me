@@ -11,12 +11,12 @@ terraform {
     }
   }
 
-  # Optional: Store Terraform state in S3 (uncomment after first apply)
-  # backend "s3" {
-  #   bucket = "flora-terraform-state"
-  #   key    = "production/terraform.tfstate"
-  #   region = "ap-southeast-2"
-  # }
+  backend "s3" {
+    bucket         = "flora-terraform-state"
+    key            = "production/terraform.tfstate"
+    region         = "ap-southeast-2"
+    dynamodb_table = "flora-terraform-locks"
+  }
 }
 
 provider "aws" {

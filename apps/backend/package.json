@@ -23,6 +23,11 @@
     "test:email": "jest --testPathPatterns=email",
     "test:ai": "jest --testPathPatterns=ai",
     "test:integration": "jest --testPathPatterns=integration",
+    "test:delivery": "jest --testPathPatterns=delivery",
+    "test:delivery:google": "jest --testPathPatterns=delivery/googleDistance",
+    "test:delivery:sendle": "jest --testPathPatterns=delivery/sendle",
+    "test:delivery:calculator": "jest --testPathPatterns=delivery/shippingCalculator",
+    "test:delivery:integration": "jest --testPathPatterns=delivery/integration",
     "test:live-email": "tsx src/test/test-get-live-email.ts",
     "get-token": "tsx src/test/test-get-token.ts",
     "restock": "node update-all-stock.js"
