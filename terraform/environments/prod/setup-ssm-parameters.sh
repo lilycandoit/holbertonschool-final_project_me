@@ -1,6 +1,13 @@
 #!/bin/bash
 # Setup SSM Parameters for Flora Production Environment
 # This stores sensitive configuration in AWS Systems Manager Parameter Store
+#
+# Usage:
+#   export AUTH0_CLIENT_SECRET="your-secret"
+#   export STRIPE_SECRET_KEY="sk_test_..."
+#   export STRIPE_WEBHOOK_SECRET="whsec_..."
+#   export GEMINI_API_KEY="AIza..."
+#   ./setup-ssm-parameters.sh
 
 set -e
 
@@ -44,25 +51,25 @@ create_parameter \
 # Auth0 Client Secret
 create_parameter \
     "/flora/production/auth0_client_secret" \
-    "RT16bw-ELszHP9pYMPA6OiisMZpHZcK4ZzOs70VbtHkcIV98KzF7oRlVvUZ-yN4G" \
+    "${AUTH0_CLIENT_SECRET}" \
     "Auth0 client secret for production"
 
 # Stripe Secret Key
 create_parameter \
     "/flora/production/stripe_secret_key" \
-    "sk_test_51S8ya1PtGaCvy8FqNNCUxYi6uNBwI7tPuTHzuWk0nLamKsv2aPj8l1Hba7TrJse0VRjgjmTjH6yWGYaaYnhUeLNq00XHCfAB4a" \
+    "${STRIPE_SECRET_KEY}" \
     "Stripe API secret key for production"
 
 # Stripe Webhook Secret
 create_parameter \
     "/flora/production/stripe_webhook_secret" \
-    "whsec_GSX6wXjNoh7L0Ey8tb6mFPUWRova3hLC" \
+    "${STRIPE_WEBHOOK_SECRET}" \
     "Stripe webhook signing secret for production"
 
 # Gemini API Key
 create_parameter \
     "/flora/production/gemini_api_key" \
-    "AIzaSyAk9pf_hJKrbbdCiQB7FyjgW15rsAOqYr8" \
+    "${GEMINI_API_KEY}" \
     "Google Gemini AI API key for production"
 
 # SMTP User
