@@ -44,6 +44,8 @@ project-root/
 |------|---------------|
 | **Deploy code changes to AWS** | [**DEPLOYMENT.md**](docs/DEPLOYMENT.md) ⭐ (Dockerized app workflow) |
 | **Create AWS infrastructure** (first time) | [**SETUP.md**](docs/SETUP.md) (Run Terraform to create EC2, RDS, S3, etc.) |
+| **Migrate to 100% free hosting** (Low on AWS credits) | [**MIGRATION_TO_FREE_TIER.md**](docs/MIGRATION_TO_FREE_TIER.md) 🆓 (Vercel + Render + Supabase) |
+| **Stop all AWS charges** (Free Tier expired) | [**SHUTDOWN.md**](docs/SHUTDOWN.md) 🛑 (Complete teardown guide) |
 | Understand terraform-backend/ folder | [BACKEND_ARCHITECTURE.md](docs/BACKEND_ARCHITECTURE.md) (Remote state explained) |
 | Modify existing AWS resources | [IMPORT.md](docs/IMPORT.md) (Import & update infrastructure) |
 | Avoid unexpected AWS charges | [AWS_COST_TIPS.md](docs/AWS_COST_TIPS.md) ⚠️ (Free Tier tips) |
@@ -142,11 +144,13 @@ export GEMINI_API_KEY="AIza..."
 ## 📚 Documentation
 
 - **[DEPLOYMENT.md](docs/DEPLOYMENT.md)** ⭐ - Deploy Dockerized Flora app to AWS (automated + manual workflows)
-- **[BACKEND_ARCHITECTURE.md](docs/BACKEND_ARCHITECTURE.md)** - Understanding the two-folder bootstrap pattern
 - **[SETUP.md](docs/SETUP.md)** - Complete guide for setting up infrastructure from scratch
+- **[SHUTDOWN.md](docs/SHUTDOWN.md)** 🛑 - Stop all AWS charges (complete teardown after Free Tier)
+- **[BACKEND_ARCHITECTURE.md](docs/BACKEND_ARCHITECTURE.md)** - Understanding the two-folder bootstrap pattern
 - **[IMPORT.md](docs/IMPORT.md)** - How to import and modify existing AWS resources
 - **[AWS_COST_TIPS.md](docs/AWS_COST_TIPS.md)** ⚠️ - Critical tips to avoid AWS charges
 - **[COST_AUDIT.md](docs/COST_AUDIT.md)** - Current infrastructure compliance audit
+- **[IMPROVEMENTS_SUMMARY.md](docs/IMPROVEMENTS_SUMMARY.md)** - All cost optimizations applied
 - **[SNAPSHOT_SAFETY.md](docs/SNAPSHOT_SAFETY.md)** - RDS snapshot protection explained
 - **[FAQ.md](docs/FAQ.md)** - Common questions (dev/prod, Console vs CLI)
 
