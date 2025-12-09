@@ -70,6 +70,13 @@ resource "aws_elastic_beanstalk_environment" "backend" {
     value     = "SingleInstance"
   }
 
+  # Instance Type
+  setting {
+  namespace = "aws:autoscaling:launchconfiguration"
+  name      = "InstanceType"
+  value     = "t3.micro"
+  }
+
   # Health Reporting - Basic (enhanced requires load balancer)
   setting {
     namespace = "aws:elasticbeanstalk:healthreporting:system"

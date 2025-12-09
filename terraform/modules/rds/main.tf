@@ -42,8 +42,10 @@ resource "aws_db_instance" "postgres" {
 
   allocated_storage     = 20 # Free tier: 20GB
   max_allocated_storage = 0  # Disable auto-scaling for free tier
-  storage_type          = "gp2"
-  storage_encrypted     = false # Set to true for production (costs extra)
+  storage_type          = "gp3"   # 20% cheaper, faster
+  storage_throughput    = 125     # Free tier (up to 3000 IOPS, 125 MBps)
+  iops                  = 3000    # Free tier baseline
+  storage_encrypted     = true # FREE, no extra cost
 
   db_name  = var.database_name
   username = var.database_username
@@ -57,7 +59,7 @@ resource "aws_db_instance" "postgres" {
   backup_window           = "03:00-04:00" # UTC
   maintenance_window      = "Mon:04:00-Mon:05:00"
 
-  skip_final_snapshot       = true # Set to false for production
+  skip_final_snapshot       = false
   final_snapshot_identifier = "${var.project_name}-final-snapshot"
 
   # Performance Insights (disable for free tier)
