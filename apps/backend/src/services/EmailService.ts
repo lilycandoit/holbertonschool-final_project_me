@@ -1,4 +1,4 @@
-import nodemailer from "nodemailer";
+import { Resend } from 'resend';
 import { User, Order, Subscription } from "@prisma/client";
 
 // Type for order with optional user info and items
@@ -24,48 +24,28 @@ type OrderWithUser = Order & {
   }>;
 };
 
-interface EmailConfig {
-  host: string;
-  port: number;
-  secure: boolean;
-  auth: {
-    user: string;
-    pass: string;
-  };
-}
-
 export class EmailService {
-  private transporter: nodemailer.Transporter;
+  private resend: Resend;
+  private fromEmail: string;
 
   constructor() {
-    const config: EmailConfig = {
-      host: process.env.SMTP_HOST || "smtp.gmail.com",
-      port: parseInt(process.env.SMTP_PORT || "587"),
-      secure: process.env.SMTP_SECURE === "true",
-      auth: {
-        user: process.env.SMTP_USER!,
-        pass: process.env.SMTP_PASS!,
-      },
-    };
+    // Initialize Resend with API key
+    const apiKey = process.env.RESEND_API_KEY || process.env.SMTP_PASS;
 
-    this.transporter = nodemailer.createTransport(config);
+    if (!apiKey) {
+      console.error("❌ RESEND_API_KEY not found in environment variables");
+      throw new Error("RESEND_API_KEY is required");
+    }
 
-    // Verify connection on startup
-    this.transporter.verify((error) => {
-      if (error) {
-        console.error("❌ SMTP connection failed:", error.message);
-      } else {
-        console.log("✅ SMTP server is ready to send emails");
-      }
-    });
-  }
+    this.resend = new Resend(apiKey);
 
-  // Helper method to get professional sender format
-  private getProfessionalSender(): string {
-    // Use professional display name with the authenticated email
-    // Format: "Flora Marketplace <authenticated@email.com>"
-    const senderEmail = process.env.SMTP_USER!;
-    return `"Flora Marketplace" <${senderEmail}>`;
+    // Resend requires verified sender domain
+    // For testing: use onboarding@resend.dev
+    // For production: use your verified domain
+    this.fromEmail = process.env.FROM_EMAIL || "onboarding@resend.dev";
+
+    console.log("✅ Resend email service initialized");
+    console.log(`📧 Sending from: ${this.fromEmail}`);
   }
 
   // Helper method to get customer name from order
@@ -94,41 +74,46 @@ export class EmailService {
   async sendWelcomeEmail(user: User): Promise<void> {
     const personalization = this.getPersonalization(user);
 
-    const mailOptions = {
-      from: this.getProfessionalSender(),
-      to: user.email,
-      subject: "Welcome to Flora!",
-      html: `
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-          <h1 style="color: #16a34a;">Welcome to Flora!</h1>
-          <p>Dear ${user.firstName || "Customer"},</p>
-          <p>Thank you for joining Flora! We're excited to help you discover beautiful, fresh flowers for every occasion.</p>
+    try {
+      await this.resend.emails.send({
+        from: `Flora Marketplace <${this.fromEmail}>`,
+        to: user.email,
+        subject: "Welcome to Flora!",
+        html: `
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+            <h1 style="color: #16a34a;">Welcome to Flora!</h1>
+            <p>Dear ${user.firstName || "Customer"},</p>
+            <p>Thank you for joining Flora! We're excited to help you discover beautiful, fresh flowers for every occasion.</p>
 
-          ${personalization ? `
-          <div style="background-color: #e8f5e8; padding: 20px; border-radius: 8px; margin: 20px 0;">
-            <h3 style="color: #16a34a; margin-top: 0;">Based on your preferences:</h3>
-            <p>${personalization}</p>
+            ${personalization ? `
+            <div style="background-color: #e8f5e8; padding: 20px; border-radius: 8px; margin: 20px 0;">
+              <h3 style="color: #16a34a; margin-top: 0;">Based on your preferences:</h3>
+              <p>${personalization}</p>
+            </div>
+            ` : ''}
+
+            <div style="background-color: #f3f4f6; padding: 20px; border-radius: 8px; margin: 20px 0;">
+              <h3 style="color: #16a34a; margin-top: 0;">What's next?</h3>
+              <ul>
+                <li>Browse our collection of fresh flowers and arrangements</li>
+                <li>Consider a subscription for regular flower deliveries</li>
+                <li>Check out our seasonal specials</li>
+                <li>Complete your profile to get personalized recommendations</li>
+              </ul>
+            </div>
+
+            <p>If you have any questions, feel free to reach out to our customer service team.</p>
+            <p>Happy flowering!</p>
+            <p>The Flora Team</p>
           </div>
-          ` : ''}
+        `,
+      });
 
-          <div style="background-color: #f3f4f6; padding: 20px; border-radius: 8px; margin: 20px 0;">
-            <h3 style="color: #16a34a; margin-top: 0;">What's next?</h3>
-            <ul>
-              <li>Browse our collection of fresh flowers and arrangements</li>
-              <li>Consider a subscription for regular flower deliveries</li>
-              <li>Check out our seasonal specials</li>
-              <li>Complete your profile to get personalized recommendations</li>
-            </ul>
-          </div>
-
-          <p>If you have any questions, feel free to reach out to our customer service team.</p>
-          <p>Happy flowering!</p>
-          <p>The Flora Team</p>
-        </div>
-      `,
-    };
-
-    await this.transporter.sendMail(mailOptions);
+      console.log(`✅ Welcome email sent to ${user.email}`);
+    } catch (error) {
+      console.error(`❌ Failed to send welcome email to ${user.email}:`, error);
+      throw error;
+    }
   }
 
   async sendOrderConfirmation(order: OrderWithUser): Promise<void> {
@@ -143,109 +128,114 @@ export class EmailService {
       return;
     }
 
-    const mailOptions = {
-      from: this.getProfessionalSender(),
-      to: customerEmail,
-      subject: `Order Confirmation #${order.orderNumber}`,
-      html: `
-        <div style="font-family: 'Outfit', Arial, sans-serif; max-width: 600px; margin: 0 auto; background: #ffffff;">
-          <!-- Logo Section -->
-          <div style="text-align: center; padding: 2rem 0; width: 100%; box-sizing: border-box;">
-            <img src="https://i.imgur.com/yWZVxUd.png" alt="FLORA" style="max-width: 200px; height: auto; display: block; margin: 0 auto;">
-          </div>
-
-          <!-- Header Section -->
-          <div style="background: #C8D7C4; width: 100%; padding: 2rem 2rem; text-align: center; box-sizing: border-box;">
-            <h1 style="color: #595E4E; font-size: 36px; font-weight: 600; font-family: 'EB Garamond', Georgia, serif; margin: 0 0 1rem 0; letter-spacing: 2px;">ORDER CONFIRMATION</h1>
-
-            <!-- Order Number Highlight -->
-            <div style="background: rgba(255, 255, 255, 0.7); padding: 0.75rem 1.5rem; border-radius: 8px; margin: 1rem auto; display: inline-block; border: 2px solid #595E4E;">
-              <span style="color: #595E4E; font-size: 0.95rem; font-weight: 500;">Order Number:</span>
-              <span style="color: #595E4E; font-size: 1.125rem; font-family: 'EB Garamond', Georgia, serif; font-weight: 600; letter-spacing: 1px;"> #${order.orderNumber}</span>
+    try {
+      await this.resend.emails.send({
+        from: `Flora Marketplace <${this.fromEmail}>`,
+        to: customerEmail,
+        subject: `Order Confirmation #${order.orderNumber}`,
+        html: `
+          <div style="font-family: 'Outfit', Arial, sans-serif; max-width: 600px; margin: 0 auto; background: #ffffff;">
+            <!-- Logo Section -->
+            <div style="text-align: center; padding: 2rem 0; width: 100%; box-sizing: border-box;">
+              <img src="https://i.imgur.com/yWZVxUd.png" alt="FLORA" style="max-width: 200px; height: auto; display: block; margin: 0 auto;">
             </div>
 
-            <p style="color: #595E4E; font-size: 1.125rem; margin: 1rem 0;">${customerName}, thank you for your order!</p>
-            <p style="color: #595E4E; font-size: 0.95rem; line-height: 1.6; margin: 0.5rem auto; max-width: 500px;">We've received your order and will contact you as soon as your package is shipped. You can find your purchase information below.</p>
-          </div>
+            <!-- Header Section -->
+            <div style="background: #C8D7C4; width: 100%; padding: 2rem 2rem; text-align: center; box-sizing: border-box;">
+              <h1 style="color: #595E4E; font-size: 36px; font-weight: 600; font-family: 'EB Garamond', Georgia, serif; margin: 0 0 1rem 0; letter-spacing: 2px;">ORDER CONFIRMATION</h1>
 
-          <!-- Order Summary Section -->
-          <div style="padding: 2rem; text-align: center; width: 100%; box-sizing: border-box;">
-            <h2 style="color: #595E4E; font-size: 36px; font-weight: 600; font-family: 'EB Garamond', Georgia, serif; margin-bottom: 0.5rem;">Order Summary</h2>
-            <p style="color: #595E4E; font-size: 16px; margin-bottom: 2rem;">${this.formatDate(order.createdAt)}</p>
+              <!-- Order Number Highlight -->
+              <div style="background: rgba(255, 255, 255, 0.7); padding: 0.75rem 1.5rem; border-radius: 8px; margin: 1rem auto; display: inline-block; border: 2px solid #595E4E;">
+                <span style="color: #595E4E; font-size: 0.95rem; font-weight: 500;">Order Number:</span>
+                <span style="color: #595E4E; font-size: 1.125rem; font-family: 'EB Garamond', Georgia, serif; font-weight: 600; letter-spacing: 1px;"> #${order.orderNumber}</span>
+              </div>
 
-            <!-- Order Items -->
-            ${this.renderOrderItems(order)}
+              <p style="color: #595E4E; font-size: 1.125rem; margin: 1rem 0;">${customerName}, thank you for your order!</p>
+              <p style="color: #595E4E; font-size: 0.95rem; line-height: 1.6; margin: 0.5rem auto; max-width: 500px;">We've received your order and will contact you as soon as your package is shipped. You can find your purchase information below.</p>
+            </div>
 
-            <!-- Price Breakdown -->
-            <table style="max-width: 400px; width: 100%; margin: 2rem auto; padding-top: 1.5rem; border-top: 1px solid #e5e5e0; border-collapse: collapse;">
-              <tr>
-                <td style="padding: 0.35rem 0; color: #595E4E; font-size: 1rem; text-align: left;">Subtotal</td>
-                <td style="padding: 0.35rem 0; color: #595E4E; font-size: 1rem; text-align: right;">$${subtotalAmount}</td>
-              </tr>
-              <tr>
-                <td style="padding: 0.35rem 0; color: #595E4E; font-size: 1rem; text-align: left;">Shipping</td>
-                <td style="padding: 0.35rem 0; color: #595E4E; font-size: 1rem; text-align: right;">$${shippingAmount}</td>
-              </tr>
-              <tr>
-                <td colspan="2" style="padding-top: 0.5rem; border-top: 1px solid #e5e5e0;"></td>
-              </tr>
-              <tr>
-                <td style="padding: 0.5rem 0; color: #595E4E; font-size: 1.125rem; font-weight: 700; text-align: left;">Total</td>
-                <td style="padding: 0.5rem 0; color: #595E4E; font-size: 1.125rem; font-weight: 700; text-align: right;">$${totalAmount}</td>
-              </tr>
-            </table>
-          </div>
+            <!-- Order Summary Section -->
+            <div style="padding: 2rem; text-align: center; width: 100%; box-sizing: border-box;">
+              <h2 style="color: #595E4E; font-size: 36px; font-weight: 600; font-family: 'EB Garamond', Georgia, serif; margin-bottom: 0.5rem;">Order Summary</h2>
+              <p style="color: #595E4E; font-size: 16px; margin-bottom: 2rem;">${this.formatDate(order.createdAt)}</p>
 
-          <!-- Billing and Shipping Section -->
-          <div style="padding: 2rem; text-align: center; width: 100%; box-sizing: border-box;">
-            <h2 style="color: #595E4E; font-size: 36px; font-family: 'EB Garamond', Georgia, serif; font-weight: 600; margin-bottom: 2rem;">Billing and Shipping</h2>
+              <!-- Order Items -->
+              ${this.renderOrderItems(order)}
 
-            <table style="width: 100%; max-width: 500px; margin: 0 auto; border-collapse: collapse;">
-              <tr>
-                <td style="width: 50%; vertical-align: top; padding: 1rem; text-align: left;">
-                  <h3 style="color: #595E4E; font-size: 20px; font-weight: 500; font-family: 'EB Garamond', Georgia, serif; margin: 0 0 1rem 0; white-space: nowrap;">Billing Information</h3>
-                  <p style="color: #595E4E; font-size: 15px; margin: 0.25rem 0; line-height: 1.6;">
-                    ${order.billingFirstName && order.billingLastName
-                      ? `${order.billingFirstName} ${order.billingLastName}<br/>${order.billingStreet1}<br/>${order.billingStreet2 ? order.billingStreet2 + '<br/>' : ''}${order.billingCity}, ${order.billingState}<br/>${order.billingZipCode}<br/>${order.billingCountry || 'AU'}`
-                      : `${order.shippingFirstName} ${order.shippingLastName}<br/>${order.shippingStreet1}<br/>${order.shippingStreet2 ? order.shippingStreet2 + '<br/>' : ''}${order.shippingCity}, ${order.shippingState}<br/>${order.shippingZipCode}<br/>${order.shippingCountry || 'AU'}<br/><span style="color: #6b7a5e; font-style: italic;">(Same as shipping)</span>`}
-                  </p>
-                </td>
-                <td style="width: 50%; vertical-align: top; padding: 1rem; text-align: left;">
-                  <h3 style="color: #595E4E; font-size: 20px; font-weight: 500; font-family: 'EB Garamond', Georgia, serif; margin: 0 0 1rem 0; white-space: nowrap;">Shipping Information</h3>
-                  <p style="color: #595E4E; font-size: 15px; margin: 0.25rem 0; line-height: 1.6;">
-                    ${order.shippingFirstName} ${order.shippingLastName}<br/>
-                    ${order.shippingStreet1}<br/>
-                    ${order.shippingStreet2 ? order.shippingStreet2 + '<br/>' : ''}
-                    ${order.shippingCity}, ${order.shippingState}<br/>
-                    ${order.shippingZipCode}<br/>
-                    ${order.shippingCountry || 'AU'}
-                  </p>
-                </td>
-              </tr>
-            </table>
+              <!-- Price Breakdown -->
+              <table style="max-width: 400px; width: 100%; margin: 2rem auto; padding-top: 1.5rem; border-top: 1px solid #e5e5e0; border-collapse: collapse;">
+                <tr>
+                  <td style="padding: 0.35rem 0; color: #595E4E; font-size: 1rem; text-align: left;">Subtotal</td>
+                  <td style="padding: 0.35rem 0; color: #595E4E; font-size: 1rem; text-align: right;">$${subtotalAmount}</td>
+                </tr>
+                <tr>
+                  <td style="padding: 0.35rem 0; color: #595E4E; font-size: 1rem; text-align: left;">Shipping</td>
+                  <td style="padding: 0.35rem 0; color: #595E4E; font-size: 1rem; text-align: right;">$${shippingAmount}</td>
+                </tr>
+                <tr>
+                  <td colspan="2" style="padding-top: 0.5rem; border-top: 1px solid #e5e5e0;"></td>
+                </tr>
+                <tr>
+                  <td style="padding: 0.5rem 0; color: #595E4E; font-size: 1.125rem; font-weight: 700; text-align: left;">Total</td>
+                  <td style="padding: 0.5rem 0; color: #595E4E; font-size: 1.125rem; font-weight: 700; text-align: right;">$${totalAmount}</td>
+                </tr>
+              </table>
+            </div>
 
-            <div style="margin-top: 2rem;">
-              <p style="color: #595E4E; font-size: 0.95rem; line-height: 1.6;">
-                ${order.requestedDeliveryDate
-                  ? `<strong>Requested Delivery Date:</strong> ${this.formatDate(new Date(order.requestedDeliveryDate))}<br/>`
-                  : ''}
-                ${order.deliveryNotes ? `<strong>Delivery Notes:</strong> ${order.deliveryNotes}<br/>` : ''}
-                <strong>Shipping method:</strong> ${order.deliveryType === 'STANDARD' ? 'Standard shipping' : order.deliveryType || 'Standard shipping'}
-              </p>
+            <!-- Billing and Shipping Section -->
+            <div style="padding: 2rem; text-align: center; width: 100%; box-sizing: border-box;">
+              <h2 style="color: #595E4E; font-size: 36px; font-family: 'EB Garamond', Georgia, serif; font-weight: 600; margin-bottom: 2rem;">Billing and Shipping</h2>
+
+              <table style="width: 100%; max-width: 500px; margin: 0 auto; border-collapse: collapse;">
+                <tr>
+                  <td style="width: 50%; vertical-align: top; padding: 1rem; text-align: left;">
+                    <h3 style="color: #595E4E; font-size: 20px; font-weight: 500; font-family: 'EB Garamond', Georgia, serif; margin: 0 0 1rem 0; white-space: nowrap;">Billing Information</h3>
+                    <p style="color: #595E4E; font-size: 15px; margin: 0.25rem 0; line-height: 1.6;">
+                      ${order.billingFirstName && order.billingLastName
+                        ? `${order.billingFirstName} ${order.billingLastName}<br/>${order.billingStreet1}<br/>${order.billingStreet2 ? order.billingStreet2 + '<br/>' : ''}${order.billingCity}, ${order.billingState}<br/>${order.billingZipCode}<br/>${order.billingCountry || 'AU'}`
+                        : `${order.shippingFirstName} ${order.shippingLastName}<br/>${order.shippingStreet1}<br/>${order.shippingStreet2 ? order.shippingStreet2 + '<br/>' : ''}${order.shippingCity}, ${order.shippingState}<br/>${order.shippingZipCode}<br/>${order.shippingCountry || 'AU'}<br/><span style="color: #6b7a5e; font-style: italic;">(Same as shipping)</span>`}
+                    </p>
+                  </td>
+                  <td style="width: 50%; vertical-align: top; padding: 1rem; text-align: left;">
+                    <h3 style="color: #595E4E; font-size: 20px; font-weight: 500; font-family: 'EB Garamond', Georgia, serif; margin: 0 0 1rem 0; white-space: nowrap;">Shipping Information</h3>
+                    <p style="color: #595E4E; font-size: 15px; margin: 0.25rem 0; line-height: 1.6;">
+                      ${order.shippingFirstName} ${order.shippingLastName}<br/>
+                      ${order.shippingStreet1}<br/>
+                      ${order.shippingStreet2 ? order.shippingStreet2 + '<br/>' : ''}
+                      ${order.shippingCity}, ${order.shippingState}<br/>
+                      ${order.shippingZipCode}<br/>
+                      ${order.shippingCountry || 'AU'}
+                    </p>
+                  </td>
+                </tr>
+              </table>
+
+              <div style="margin-top: 2rem;">
+                <p style="color: #595E4E; font-size: 0.95rem; line-height: 1.6;">
+                  ${order.requestedDeliveryDate
+                    ? `<strong>Requested Delivery Date:</strong> ${this.formatDate(new Date(order.requestedDeliveryDate))}<br/>`
+                    : ''}
+                  ${order.deliveryNotes ? `<strong>Delivery Notes:</strong> ${order.deliveryNotes}<br/>` : ''}
+                  <strong>Shipping method:</strong> ${order.deliveryType === 'STANDARD' ? 'Standard shipping' : order.deliveryType || 'Standard shipping'}
+                </p>
+              </div>
+            </div>
+
+            <!-- Footer Section -->
+            <div style="background: #C8D7C4; width: 100%; padding: 2rem 2rem; text-align: center; box-sizing: border-box;">
+              <p style="color: #595E4E; font-size: 0.95rem; line-height: 1.6; margin: 0 0 1rem 0;">We'll send you another email when your order ships with tracking information.</p>
+              <p style="color: #595E4E; font-size: 0.95rem; margin: 0;">Thank you for choosing Flora!</p>
+              <p style="color: #595E4E; font-size: 0.95rem; font-weight: 500; margin: 0.5rem 0 0 0;">The Flora Team</p>
             </div>
           </div>
+        `,
+      });
 
-          <!-- Footer Section -->
-          <div style="background: #C8D7C4; width: 100%; padding: 2rem 2rem; text-align: center; box-sizing: border-box;">
-            <p style="color: #595E4E; font-size: 0.95rem; line-height: 1.6; margin: 0 0 1rem 0;">We'll send you another email when your order ships with tracking information.</p>
-            <p style="color: #595E4E; font-size: 0.95rem; margin: 0;">Thank you for choosing Flora!</p>
-            <p style="color: #595E4E; font-size: 0.95rem; font-weight: 500; margin: 0.5rem 0 0 0;">The Flora Team</p>
-          </div>
-        </div>
-      `,
-    };
-
-    await this.transporter.sendMail(mailOptions);
+      console.log(`✅ Order confirmation sent to ${customerEmail} for order #${order.orderNumber}`);
+    } catch (error) {
+      console.error(`❌ Failed to send order confirmation to ${customerEmail}:`, error);
+      throw error;
+    }
   }
 
   async sendOrderShipped(order: OrderWithUser, trackingNumber?: string): Promise<void> {
@@ -258,122 +248,142 @@ export class EmailService {
       return;
     }
 
-    const mailOptions = {
-      from: this.getProfessionalSender(),
-      to: customerEmail,
-      subject: `Your Flora Order #${order.orderNumber} Has Shipped!`,
-      html: `
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-          <h1 style="color: #16a34a;">Your Order Has Shipped!</h1>
-          <p>Dear ${customerName},</p>
-          <p>Great news! Your Flora order is on its way to you.</p>
+    try {
+      await this.resend.emails.send({
+        from: `Flora Marketplace <${this.fromEmail}>`,
+        to: customerEmail,
+        subject: `Your Flora Order #${order.orderNumber} Has Shipped!`,
+        html: `
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+            <h1 style="color: #16a34a;">Your Order Has Shipped!</h1>
+            <p>Dear ${customerName},</p>
+            <p>Great news! Your Flora order is on its way to you.</p>
 
-          <div style="background-color: #f3f4f6; padding: 20px; border-radius: 8px; margin: 20px 0;">
-            <h3 style="color: #16a34a; margin-top: 0;">Shipping Information</h3>
-            <p><strong>Order Number:</strong> #${order.orderNumber}</p>
-            ${trackingNumber ? `<p><strong>Tracking Number:</strong> ${trackingNumber}</p>` : ""}
-            <p><strong>Delivery Address:</strong><br/>
-            ${deliveryAddress}</p>
-            ${
-              order.requestedDeliveryDate
-                ? `<p><strong>Expected Delivery:</strong> ${new Date(order.requestedDeliveryDate).toLocaleDateString()}</p>`
-                : ""
-            }
+            <div style="background-color: #f3f4f6; padding: 20px; border-radius: 8px; margin: 20px 0;">
+              <h3 style="color: #16a34a; margin-top: 0;">Shipping Information</h3>
+              <p><strong>Order Number:</strong> #${order.orderNumber}</p>
+              ${trackingNumber ? `<p><strong>Tracking Number:</strong> ${trackingNumber}</p>` : ""}
+              <p><strong>Delivery Address:</strong><br/>
+              ${deliveryAddress}</p>
+              ${
+                order.requestedDeliveryDate
+                  ? `<p><strong>Expected Delivery:</strong> ${new Date(order.requestedDeliveryDate).toLocaleDateString()}</p>`
+                  : ""
+              }
+            </div>
+
+            <p>Your fresh flowers are carefully packaged and on their way to brighten your day!</p>
+            <p>The Flora Team</p>
           </div>
+        `,
+      });
 
-          <p>Your fresh flowers are carefully packaged and on their way to brighten your day!</p>
-          <p>The Flora Team</p>
-        </div>
-      `,
-    };
-
-    await this.transporter.sendMail(mailOptions);
+      console.log(`✅ Shipping notification sent to ${customerEmail} for order #${order.orderNumber}`);
+    } catch (error) {
+      console.error(`❌ Failed to send shipping notification to ${customerEmail}:`, error);
+      throw error;
+    }
   }
 
   async sendSubscriptionConfirmation(subscription: Subscription & { user: User }): Promise<void> {
-    const mailOptions = {
-      from: this.getProfessionalSender(),
-      to: subscription.user.email,
-      subject: "Your Flora Subscription is Active!",
-      html: `
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-          <h1 style="color: #16a34a;">Subscription Confirmed!</h1>
-          <p>Dear ${subscription.user.firstName || subscription.user.lastName || "Customer"},</p>
-          <p>Your Flora subscription is now active! You'll receive beautiful, fresh flowers regularly.</p>
+    try {
+      await this.resend.emails.send({
+        from: `Flora Marketplace <${this.fromEmail}>`,
+        to: subscription.user.email,
+        subject: "Your Flora Subscription is Active!",
+        html: `
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+            <h1 style="color: #16a34a;">Subscription Confirmed!</h1>
+            <p>Dear ${subscription.user.firstName || subscription.user.lastName || "Customer"},</p>
+            <p>Your Flora subscription is now active! You'll receive beautiful, fresh flowers regularly.</p>
 
-          <div style="background-color: #f3f4f6; padding: 20px; border-radius: 8px; margin: 20px 0;">
-            <h3 style="color: #16a34a; margin-top: 0;">Subscription Details</h3>
-            <p><strong>Subscription Type:</strong> ${subscription.type}</p>
-            <p><strong>Start Date:</strong> ${subscription.createdAt.toLocaleDateString()}</p>
-            <p><strong>Next Delivery:</strong> ${subscription.nextDeliveryDate?.toLocaleDateString() || 'TBD'}</p>
-            <p><strong>Delivery Address:</strong><br/>
-            Address on file</p>
-            ${subscription.deliveryNotes ? `<p><strong>Notes:</strong> ${subscription.deliveryNotes}</p>` : ""}
+            <div style="background-color: #f3f4f6; padding: 20px; border-radius: 8px; margin: 20px 0;">
+              <h3 style="color: #16a34a; margin-top: 0;">Subscription Details</h3>
+              <p><strong>Subscription Type:</strong> ${subscription.type}</p>
+              <p><strong>Start Date:</strong> ${subscription.createdAt.toLocaleDateString()}</p>
+              <p><strong>Next Delivery:</strong> ${subscription.nextDeliveryDate?.toLocaleDateString() || 'TBD'}</p>
+              <p><strong>Delivery Address:</strong><br/>
+              Address on file</p>
+              ${subscription.deliveryNotes ? `<p><strong>Notes:</strong> ${subscription.deliveryNotes}</p>` : ""}
+            </div>
+
+            <p>You can manage your subscription anytime from your account dashboard.</p>
+            <p>Welcome to the Flora family!</p>
+            <p>The Flora Team</p>
           </div>
+        `,
+      });
 
-          <p>You can manage your subscription anytime from your account dashboard.</p>
-          <p>Welcome to the Flora family!</p>
-          <p>The Flora Team</p>
-        </div>
-      `,
-    };
-
-    await this.transporter.sendMail(mailOptions);
+      console.log(`✅ Subscription confirmation sent to ${subscription.user.email}`);
+    } catch (error) {
+      console.error(`❌ Failed to send subscription confirmation to ${subscription.user.email}:`, error);
+      throw error;
+    }
   }
 
   async sendSubscriptionReminder(subscription: Subscription & { user: User }): Promise<void> {
-    const mailOptions = {
-      from: this.getProfessionalSender(),
-      to: subscription.user.email,
-      subject: "Your Flora Delivery is Coming Soon!",
-      html: `
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-          <h1 style="color: #16a34a;">Delivery Reminder</h1>
-          <p>Dear ${subscription.user.firstName || subscription.user.lastName || "Customer"},</p>
-          <p>Just a friendly reminder that your next Flora delivery is scheduled for ${subscription.nextDeliveryDate?.toLocaleDateString() || 'TBD'}.</p>
+    try {
+      await this.resend.emails.send({
+        from: `Flora Marketplace <${this.fromEmail}>`,
+        to: subscription.user.email,
+        subject: "Your Flora Delivery is Coming Soon!",
+        html: `
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+            <h1 style="color: #16a34a;">Delivery Reminder</h1>
+            <p>Dear ${subscription.user.firstName || subscription.user.lastName || "Customer"},</p>
+            <p>Just a friendly reminder that your next Flora delivery is scheduled for ${subscription.nextDeliveryDate?.toLocaleDateString() || 'TBD'}.</p>
 
-          <div style="background-color: #f3f4f6; padding: 20px; border-radius: 8px; margin: 20px 0;">
-            <h3 style="color: #16a34a; margin-top: 0;">Delivery Details</h3>
-            <p><strong>Delivery Date:</strong> ${subscription.nextDeliveryDate?.toLocaleDateString() || 'TBD'}</p>
-            <p><strong>Delivery Address:</strong><br/>
-            Address on file</p>
+            <div style="background-color: #f3f4f6; padding: 20px; border-radius: 8px; margin: 20px 0;">
+              <h3 style="color: #16a34a; margin-top: 0;">Delivery Details</h3>
+              <p><strong>Delivery Date:</strong> ${subscription.nextDeliveryDate?.toLocaleDateString() || 'TBD'}</p>
+              <p><strong>Delivery Address:</strong><br/>
+              Address on file</p>
+            </div>
+
+            <p>Need to make changes to your subscription? You can do so anytime from your account dashboard.</p>
+            <p>The Flora Team</p>
           </div>
+        `,
+      });
 
-          <p>Need to make changes to your subscription? You can do so anytime from your account dashboard.</p>
-          <p>The Flora Team</p>
-        </div>
-      `,
-    };
-
-    await this.transporter.sendMail(mailOptions);
+      console.log(`✅ Subscription reminder sent to ${subscription.user.email}`);
+    } catch (error) {
+      console.error(`❌ Failed to send subscription reminder to ${subscription.user.email}:`, error);
+      throw error;
+    }
   }
 
   async sendPasswordReset(email: string, resetToken: string): Promise<void> {
     const resetUrl = `${process.env.FRONTEND_URL}/auth/reset-password?token=${resetToken}`;
 
-    const mailOptions = {
-      from: this.getProfessionalSender(),
-      to: email,
-      subject: "Reset Your Flora Password",
-      html: `
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-          <h1 style="color: #16a34a;">Reset Your Password</h1>
-          <p>We received a request to reset your Flora account password.</p>
+    try {
+      await this.resend.emails.send({
+        from: `Flora Marketplace <${this.fromEmail}>`,
+        to: email,
+        subject: "Reset Your Flora Password",
+        html: `
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+            <h1 style="color: #16a34a;">Reset Your Password</h1>
+            <p>We received a request to reset your Flora account password.</p>
 
-          <div style="background-color: #f3f4f6; padding: 20px; border-radius: 8px; margin: 20px 0; text-align: center;">
-            <a href="${resetUrl}" style="display: inline-block; background-color: #16a34a; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold;">
-              Reset Password
-            </a>
+            <div style="background-color: #f3f4f6; padding: 20px; border-radius: 8px; margin: 20px 0; text-align: center;">
+              <a href="${resetUrl}" style="display: inline-block; background-color: #16a34a; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold;">
+                Reset Password
+              </a>
+            </div>
+
+            <p>If you didn't request this password reset, please ignore this email. Your password will remain unchanged.</p>
+            <p>This link will expire in 1 hour for security reasons.</p>
+            <p>The Flora Team</p>
           </div>
+        `,
+      });
 
-          <p>If you didn't request this password reset, please ignore this email. Your password will remain unchanged.</p>
-          <p>This link will expire in 1 hour for security reasons.</p>
-          <p>The Flora Team</p>
-        </div>
-      `,
-    };
-
-    await this.transporter.sendMail(mailOptions);
+      console.log(`✅ Password reset email sent to ${email}`);
+    } catch (error) {
+      console.error(`❌ Failed to send password reset email to ${email}:`, error);
+      throw error;
+    }
   }
 
   async sendContactFormSubmission(data: {
@@ -382,51 +392,55 @@ export class EmailService {
     subject: string;
     message: string;
   }): Promise<void> {
-    const mailOptions = {
-      from: this.getProfessionalSender(),
-      to: process.env.CONTACT_EMAIL || "support@flora.com",
-      subject: `Contact Form: ${data.subject}`,
-      replyTo: data.email,
-      html: `
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-          <h1 style="color: #16a34a;">New Contact Form Submission</h1>
+    try {
+      // Send to support team
+      await this.resend.emails.send({
+        from: `Flora Marketplace <${this.fromEmail}>`,
+        to: process.env.CONTACT_EMAIL || "support@flora.com",
+        subject: `Contact Form: ${data.subject}`,
+        reply_to: data.email,
+        html: `
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+            <h1 style="color: #16a34a;">New Contact Form Submission</h1>
 
-          <div style="background-color: #f3f4f6; padding: 20px; border-radius: 8px; margin: 20px 0;">
-            <p><strong>Name:</strong> ${data.name}</p>
-            <p><strong>Email:</strong> ${data.email}</p>
-            <p><strong>Subject:</strong> ${data.subject}</p>
-            <p><strong>Message:</strong></p>
-            <p>${data.message.replace(/\n/g, "<br>")}</p>
+            <div style="background-color: #f3f4f6; padding: 20px; border-radius: 8px; margin: 20px 0;">
+              <p><strong>Name:</strong> ${data.name}</p>
+              <p><strong>Email:</strong> ${data.email}</p>
+              <p><strong>Subject:</strong> ${data.subject}</p>
+              <p><strong>Message:</strong></p>
+              <p>${data.message.replace(/\n/g, "<br>")}</p>
+            </div>
           </div>
-        </div>
-      `,
-    };
+        `,
+      });
 
-    await this.transporter.sendMail(mailOptions);
+      // Send confirmation to user
+      await this.resend.emails.send({
+        from: `Flora Marketplace <${this.fromEmail}>`,
+        to: data.email,
+        subject: "We Received Your Message - Flora",
+        html: `
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+            <h1 style="color: #16a34a;">Thank You for Contacting Flora</h1>
+            <p>Dear ${data.name},</p>
+            <p>We've received your message and will get back to you within 24 hours.</p>
 
-    // Send confirmation to user
-    const confirmationOptions = {
-      from: this.getProfessionalSender(),
-      to: data.email,
-      subject: "We Received Your Message - Flora",
-      html: `
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-          <h1 style="color: #16a34a;">Thank You for Contacting Flora</h1>
-          <p>Dear ${data.name},</p>
-          <p>We've received your message and will get back to you within 24 hours.</p>
+            <div style="background-color: #f3f4f6; padding: 20px; border-radius: 8px; margin: 20px 0;">
+              <p><strong>Your message:</strong></p>
+              <p>${data.message.replace(/\n/g, "<br>")}</p>
+            </div>
 
-          <div style="background-color: #f3f4f6; padding: 20px; border-radius: 8px; margin: 20px 0;">
-            <p><strong>Your message:</strong></p>
-            <p>${data.message.replace(/\n/g, "<br>")}</p>
+            <p>Thank you for reaching out to us!</p>
+            <p>The Flora Team</p>
           </div>
+        `,
+      });
 
-          <p>Thank you for reaching out to us!</p>
-          <p>The Flora Team</p>
-        </div>
-      `,
-    };
-
-    await this.transporter.sendMail(confirmationOptions);
+      console.log(`✅ Contact form emails sent for ${data.subject}`);
+    } catch (error) {
+      console.error(`❌ Failed to send contact form emails:`, error);
+      throw error;
+    }
   }
 
   // Helper method to render order items for email
