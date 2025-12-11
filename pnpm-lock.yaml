@@ -90,6 +90,9 @@ importers:
       stripe:
         specifier: ^14.0.0
         version: 14.25.0
+      typescript:
+        specifier: ^5.3.0
+        version: 5.8.3
     devDependencies:
       '@swc/core':
         specifier: ^1.14.0
@@ -133,9 +136,6 @@ importers:
       tsx:
         specifier: ^4.20.5
         version: 4.20.6
-      typescript:
-        specifier: ^5.3.0
-        version: 5.8.3
 
   apps/frontend:
     dependencies:
