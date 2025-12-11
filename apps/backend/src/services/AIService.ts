@@ -1,3 +1,4 @@
+/// <reference lib="dom" />
 import { GoogleGenerativeAI } from "@google/generative-ai";
 
 interface GenerateMessageRequest {
