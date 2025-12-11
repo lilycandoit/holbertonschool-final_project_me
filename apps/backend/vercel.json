@@ -1,7 +1,7 @@
 {
   "version": 2,
   "name": "flora-backend",
-  "buildCommand": "pnpm install && pnpm --filter backend run build && npx prisma generate",
+  "buildCommand": "pnpm install && pnpm --filter backend run build",
   "installCommand": "pnpm install",
   "builds": [
     {
