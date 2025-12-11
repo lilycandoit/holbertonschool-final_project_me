@@ -75,6 +75,11 @@
   "prisma": {
     "seed": "tsx prisma/seed.ts"
   },
+  "packageManager": "pnpm@9.15.0",
+  "engines": {
+    "node": ">=18.0.0",
+    "pnpm": ">=8.0.0"
+  },
   "author": "Anthony, Bevan, Xiaoling, and Lily",
   "license": "MIT"
 }

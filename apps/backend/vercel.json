@@ -1,6 +1,6 @@
 {
   "version": 2,
-  "buildCommand": "cd ../.. && pnpm install && cd apps/backend && pnpm run build",
+  "buildCommand": "cd ../.. && pnpm install && pnpm --filter backend run build",
   "rewrites": [
     {
       "source": "/(.*)",
