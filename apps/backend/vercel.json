@@ -1,6 +1,6 @@
 {
   "version": 2,
-  "buildCommand": "cd ../.. && pnpm install && cd apps/backend && pnpm prisma generate && pnpm exec tsc",
+  "buildCommand": "cd ../.. && pnpm install && cd apps/backend && pnpm prisma generate",
   "rewrites": [
     {
       "source": "/(.*)",
