@@ -1,0 +1,33 @@
+# Dependencies
+node_modules
+
+# Development files
+*.test.ts
+*.spec.ts
+__tests__
+coverage
+
+# Images (now on Cloudinary)
+images/
+
+# Local environment
+.env
+.env.local
+
+# Docker
+Dockerfile
+.dockerignore
+
+# Git
+.git
+.gitignore
+
+# Documentation
+README.md
+docs/
+
+# Scripts (not needed for runtime)
+src/scripts/
+
+# Test files
+src/test/

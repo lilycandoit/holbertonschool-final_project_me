@@ -1,0 +1,35 @@
+{
+  "version": 2,
+  "name": "flora-backend",
+  "buildCommand": "pnpm install && pnpm --filter backend run build && npx prisma generate",
+  "installCommand": "pnpm install",
+  "builds": [
+    {
+      "src": "api/index.ts",
+      "use": "@vercel/node",
+      "config": {
+        "maxDuration": 30,
+        "includeFiles": [
+          "prisma/schema.prisma",
+          "dist/**",
+          "src/**"
+        ]
+      }
+    }
+  ],
+  "routes": [
+    {
+      "src": "/(.*)",
+      "dest": "/api/index.ts"
+    }
+  ],
+  "env": {
+    "NODE_ENV": "production"
+  },
+  "functions": {
+    "api/index.ts": {
+      "maxDuration": 30,
+      "memory": 1024
+    }
+  }
+}

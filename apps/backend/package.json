@@ -30,13 +30,15 @@
     "test:delivery:integration": "jest --testPathPatterns=delivery/integration",
     "test:live-email": "tsx src/test/test-get-live-email.ts",
     "get-token": "tsx src/test/test-get-token.ts",
-    "restock": "node update-all-stock.js"
+    "restock": "node update-all-stock.js",
+    "migrate:cloudinary": "tsx src/scripts/migrate-to-cloudinary.ts"
   },
   "dependencies": {
     "@google/generative-ai": "^0.24.1",
     "@prisma/client": "^5.7.0",
     "@supabase/supabase-js": "^2.57.4",
     "bcryptjs": "^2.4.3",
+    "cloudinary": "^2.8.0",
     "cors": "^2.8.5",
     "dotenv": "^16.3.1",
     "express": "^4.18.2",
