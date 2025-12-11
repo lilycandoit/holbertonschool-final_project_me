@@ -12,8 +12,7 @@
     "resolveJsonModule": true,
     "declaration": true,
     "declarationMap": true,
-    "sourceMap": true,
-    "typeRoots": ["./node_modules/@types", "./src/types"]
+    "sourceMap": true
   },
   "include": [
     "src/**/*"
