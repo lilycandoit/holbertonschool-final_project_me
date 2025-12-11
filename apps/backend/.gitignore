@@ -1,3 +1,6 @@
+# Lock files (use pnpm-lock.yaml from root)
+package-lock.json
+yarn.lock
 
 # Elastic Beanstalk Files
 .elasticbeanstalk/*
