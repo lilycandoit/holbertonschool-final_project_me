@@ -68,5 +68,10 @@ override.tf.json
 *_override.tf
 *_override.tf.json
 
+# Terraform scripts (may contain hardcoded secrets)
+terraform/**/setup-*.sh
+terraform/**/deploy-*.sh
+!terraform/**/*.example.sh
+
 # Pending documentation (work in progress)
 docs/pending/
