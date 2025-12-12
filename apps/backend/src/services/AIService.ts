@@ -184,6 +184,13 @@ export class AIService {
 
           // Non-transient errors: try next model instead of failing immediately
           console.warn(`⚠️  Non-transient error on ${modelName}, trying next fallback...`);
+          console.error(`❌ Error details:`, {
+            message: err?.message,
+            status: err?.status,
+            code: err?.code,
+            details: err?.details,
+            stack: err?.stack?.split('\n')[0] // Just first line of stack
+          });
           break;
         }
       }
