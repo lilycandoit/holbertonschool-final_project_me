@@ -344,6 +344,14 @@ export class SendleService {
   }
 
   /**
+   * Get tracking details (alias for getTracking)
+   * Used by update-tracking.ts script
+   */
+  async getTrackingDetails(orderId: string): Promise<any> {
+    return this.getTracking(orderId);
+  }
+
+  /**
    * Store Sendle quote in database for later reference
    *
    * @param quote - Sendle quote object

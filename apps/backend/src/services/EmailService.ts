@@ -531,4 +531,167 @@ export class EmailService {
     return preferences.length > 0 ? preferences.join(' ') + '.' : null;
   }
 
+  /**
+   * Send tracking update email when delivery status changes
+   * Called by update-tracking.ts script
+   */
+  async sendTrackingUpdate(params: {
+    to: string;
+    orderNumber: string;
+    trackingNumber: string;
+    newStatus: string;
+    trackingUrl?: string;
+    customerName?: string;
+  }): Promise<void> {
+    const { to, orderNumber, trackingNumber, newStatus, trackingUrl, customerName } = params;
+
+    const subject = `📦 Delivery Update: ${orderNumber}`;
+
+    const htmlContent = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <style>
+          body {
+            font-family: Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+          }
+          .container {
+            background-color: #f9f9f9;
+            border-radius: 10px;
+            padding: 30px;
+            border: 1px solid #e0e0e0;
+          }
+          .header {
+            text-align: center;
+            margin-bottom: 30px;
+          }
+          .logo {
+            font-size: 32px;
+            color: #4a90a4;
+            font-weight: bold;
+          }
+          .status-badge {
+            background-color: #4a90a4;
+            color: white;
+            padding: 10px 20px;
+            border-radius: 5px;
+            display: inline-block;
+            font-weight: bold;
+            margin: 20px 0;
+          }
+          .info-box {
+            background-color: white;
+            padding: 20px;
+            border-radius: 8px;
+            margin: 20px 0;
+          }
+          .info-row {
+            padding: 10px 0;
+            border-bottom: 1px solid #eee;
+          }
+          .info-row:last-child {
+            border-bottom: none;
+          }
+          .label {
+            font-weight: bold;
+            color: #666;
+          }
+          .btn {
+            display: inline-block;
+            padding: 12px 30px;
+            background-color: #4a90a4;
+            color: white;
+            text-decoration: none;
+            border-radius: 5px;
+            margin-top: 20px;
+          }
+          .footer {
+            text-align: center;
+            margin-top: 30px;
+            color: #666;
+            font-size: 14px;
+          }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <div class="header">
+            <div class="logo">🌸 Flora</div>
+            <h2>Delivery Status Update</h2>
+          </div>
+
+          ${customerName ? `<p>Hi ${customerName},</p>` : '<p>Hello,</p>'}
+
+          <p>Great news! Your Flora order has a status update:</p>
+
+          <div style="text-align: center;">
+            <div class="status-badge">${newStatus}</div>
+          </div>
+
+          <div class="info-box">
+            <div class="info-row">
+              <span class="label">Order Number:</span> ${orderNumber}
+            </div>
+            <div class="info-row">
+              <span class="label">Tracking Number:</span> ${trackingNumber}
+            </div>
+            <div class="info-row">
+              <span class="label">Status:</span> ${newStatus}
+            </div>
+          </div>
+
+          ${trackingUrl ? `
+            <div style="text-align: center;">
+              <a href="${trackingUrl}" class="btn">Track Your Order</a>
+            </div>
+          ` : ''}
+
+          <div class="footer">
+            <p>Thank you for shopping with Flora! 🌸</p>
+            <p>If you have any questions, please contact our support team.</p>
+          </div>
+        </div>
+      </body>
+      </html>
+    `;
+
+    const textContent = `
+Flora Delivery Update
+
+${customerName ? `Hi ${customerName},` : 'Hello,'}
+
+Your Flora order has been updated:
+
+Order Number: ${orderNumber}
+Tracking Number: ${trackingNumber}
+Status: ${newStatus}
+
+${trackingUrl ? `Track your order: ${trackingUrl}` : ''}
+
+Thank you for shopping with Flora!
+    `;
+
+    try {
+      await this.resend.emails.send({
+        from: this.fromEmail,
+        to: [to],
+        subject,
+        html: htmlContent,
+        text: textContent,
+      });
+
+      console.log(`✅ Tracking update email sent to ${to}`);
+    } catch (error) {
+      console.error(`❌ Failed to send tracking update email to ${to}:`, error);
+      throw error;
+    }
+  }
+
 }

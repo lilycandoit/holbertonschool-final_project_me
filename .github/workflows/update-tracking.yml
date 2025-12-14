@@ -1,0 +1,67 @@
+name: Update Delivery Tracking
+
+# Run every 30 minutes to poll Sendle API for tracking updates
+on:
+  schedule:
+    - cron: '*/30 * * * *'  # Every 30 minutes
+  workflow_dispatch:  # Allow manual trigger for testing
+
+jobs:
+  update-tracking:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v2
+        with:
+          version: 8
+
+      - name: Install backend dependencies
+        working-directory: ./apps/backend
+        run: pnpm install
+
+      - name: Generate Prisma Client
+        working-directory: ./apps/backend
+        run: npx prisma generate
+
+      - name: Update tracking from Sendle API
+        working-directory: ./apps/backend
+        env:
+          DATABASE_URL: ${{ secrets.PRODUCTION_DATABASE_URL }}
+          SENDLE_API_ID: ${{ secrets.SENDLE_API_ID }}
+          SENDLE_API_KEY: ${{ secrets.SENDLE_API_KEY }}
+          SENDLE_SANDBOX_MODE: 'true'
+          SMTP_HOST: ${{ secrets.SMTP_HOST }}
+          SMTP_PORT: ${{ secrets.SMTP_PORT }}
+          SMTP_USER: ${{ secrets.SMTP_USER }}
+          SMTP_PASS: ${{ secrets.SMTP_PASS }}
+          SMTP_FROM_EMAIL: ${{ secrets.SMTP_FROM_EMAIL }}
+          SMTP_FROM_NAME: ${{ secrets.SMTP_FROM_NAME }}
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+          FRONTEND_URL: ${{ secrets.FRONTEND_URL }}
+        run: |
+          echo "🚀 Starting tracking update job..."
+          pnpm update-tracking
+          echo "✅ Tracking update complete!"
+
+      - name: Success summary
+        if: success()
+        run: |
+          echo "✅ Tracking updates processed successfully!"
+          echo "📦 All active shipments checked against Sendle API"
+          echo "✉️  Email notifications sent for status changes"
+
+      - name: Failure summary
+        if: failure()
+        run: |
+          echo "❌ Tracking update job failed"
+          echo "🔍 Check logs above for details"
+          echo "💡 This may be expected if no active shipments exist"

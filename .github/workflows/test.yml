@@ -2,7 +2,7 @@ name: Flora Test Suite
 
 on:
   push:
-    branches: [ main, li-dev, anth-branch, bevan-branch, xiaoling ]
+    branches: [ main, li-dev, new-deploy ]
   pull_request:
     branches: [ main ]
 

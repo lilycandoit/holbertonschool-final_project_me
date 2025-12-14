@@ -319,6 +319,7 @@ model Order {
   items           OrderItem[]
   payments        Payment[]
   sendleQuote     SendleQuote?  // Sendle shipping quote (if applicable)
+  deliveryTracking DeliveryTracking?
 
   createdAt       DateTime      @default(now())
   updatedAt       DateTime      @updatedAt
@@ -561,6 +562,9 @@ model DeliveryTracking {
 
   // Tracking events
   events          TrackingEvent[]
+
+  // Relation to Order
+  order           Order     @relation(fields: [orderId], references: [id], onDelete: Cascade)
 
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt

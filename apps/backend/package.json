@@ -31,7 +31,9 @@
     "test:live-email": "tsx src/test/test-get-live-email.ts",
     "get-token": "tsx src/test/test-get-token.ts",
     "restock": "node update-all-stock.js",
-    "migrate:cloudinary": "tsx src/scripts/migrate-to-cloudinary.ts"
+    "migrate:cloudinary": "tsx src/scripts/migrate-to-cloudinary.ts",
+    "update-tracking": "tsx src/scripts/update-tracking.ts",
+    "test:webhook": "tsx src/scripts/test-webhook.ts"
   },
   "dependencies": {
     "@google/generative-ai": "^0.24.1",
