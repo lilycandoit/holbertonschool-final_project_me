@@ -17,6 +17,16 @@ const STATUS_MAPPING: Record<string, { status: string; userMessage: string }> = 
   'Cancelled': { status: 'CANCELLED', userMessage: 'Shipment cancelled' },
 };
 
+// Internal status to user-friendly message mapping
+const INTERNAL_STATUS_MESSAGES: Record<string, string> = {
+  PROCESSING: 'Order information received',
+  IN_TRANSIT: 'Package in transit',
+  OUT_FOR_DELIVERY: 'Out for delivery',
+  DELIVERED: 'Delivered successfully',
+  FAILED: 'Delivery failed',
+  CANCELLED: 'Shipment cancelled',
+};
+
 // ============================================
 // GET /api/tracking/:orderId
 // Get tracking information for an order
@@ -57,7 +67,7 @@ router.get("/:orderId", async (req: Request, res: Response) => {
     const tracking = order.deliveryTracking;
 
     // Get status message
-    const statusMessage = STATUS_MAPPING[tracking.status]?.userMessage || tracking.status;
+    const statusMessage = INTERNAL_STATUS_MESSAGES[tracking.status] || tracking.status;
 
     // Format response
     const response = {

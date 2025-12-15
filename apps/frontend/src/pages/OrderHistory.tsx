@@ -302,6 +302,14 @@ const OrderHistory = () => {
                     >
                       View Details
                     </Link>
+                    {order.status !== 'PENDING' && (
+                      <Link
+                        to={`/tracking/${order.id}`}
+                        className="track-order-btn"
+                      >
+                        📦 Track Order
+                      </Link>
+                    )}
                   </div>
                 </div>
               ))}

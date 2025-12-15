@@ -424,8 +424,11 @@ const OrderConfirmationPage: React.FC = () => {
           </>
         )}
 
-        {/* Back to Home Button */}
+        {/* Action Buttons */}
         <div className="action-buttons">
+          <Link to={`/tracking/${order.id}`} className="track-order-btn">
+            📦 Track Your Order
+          </Link>
           <Link to="/" className="back-home-btn">
             Back to home
           </Link>

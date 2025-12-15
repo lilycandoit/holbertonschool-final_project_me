@@ -14,6 +14,7 @@ import OrderHistory from "./pages/OrderHistory";
 import CartPage from "./pages/CartPage";
 import CheckoutPage from "./pages/Checkout";
 import OrderConfirmationPage from "./pages/OrderConfirmationPage";
+import OrderTracking from "./pages/OrderTracking";
 import { logger } from "./utils/logger";
 
 
@@ -82,9 +83,11 @@ function AppContent({ useAPI }: any) {
   const location = useLocation();
   const { isLoading: auth0Loading, isAuthenticated } = useAuth0();
 
-  // Check if we're on the order confirmation or checkout page
+  // Check if we're on the order confirmation, checkout, or tracking page
   const hideHeaderFooter =
-    location.pathname.startsWith("/order-confirmation") || location.pathname.startsWith("/checkout");
+    location.pathname.startsWith("/order-confirmation") ||
+    location.pathname.startsWith("/checkout") ||
+    location.pathname.startsWith("/tracking");
 
   useEffect(() => {
     // Handle Auth0 redirect callback - wait until Auth0 finishes processing
@@ -121,6 +124,7 @@ function AppContent({ useAPI }: any) {
           <Route path="/cart" element={<CartPage />} />
           <Route path="/checkout" element={<CheckoutPage />} />
           <Route path="/order-confirmation/:orderId" element={<OrderConfirmationPage />} />
+          <Route path="/tracking/:orderId" element={<OrderTracking />} />
         </Routes>
       </main>
 

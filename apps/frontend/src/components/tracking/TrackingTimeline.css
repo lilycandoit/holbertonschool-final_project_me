@@ -1,0 +1,139 @@
+.tracking-timeline {
+  margin-top: 24px;
+  padding: 20px 0;
+}
+
+.tracking-timeline-empty {
+  text-align: center;
+  padding: 40px 20px;
+  color: #6b7280;
+}
+
+.empty-subtext {
+  font-size: 14px;
+  margin-top: 8px;
+  color: #9ca3af;
+}
+
+.timeline-event {
+  display: flex;
+  gap: 16px;
+  margin-bottom: 24px;
+  position: relative;
+}
+
+.timeline-event:last-child {
+  margin-bottom: 0;
+}
+
+.timeline-marker {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.timeline-dot {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background-color: #d1d5db;
+  border: 3px solid #fff;
+  box-shadow: 0 0 0 2px #d1d5db;
+  z-index: 1;
+}
+
+.timeline-dot.latest {
+  background-color: #3b82f6;
+  box-shadow: 0 0 0 2px #3b82f6, 0 0 0 4px #dbeafe;
+  animation: pulse 2s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% {
+    box-shadow: 0 0 0 2px #3b82f6, 0 0 0 4px #dbeafe;
+  }
+  50% {
+    box-shadow: 0 0 0 2px #3b82f6, 0 0 0 8px #dbeafe;
+  }
+}
+
+.timeline-line {
+  width: 2px;
+  flex-grow: 1;
+  background-color: #e5e7eb;
+  margin-top: 4px;
+}
+
+.timeline-content {
+  flex-grow: 1;
+  padding-bottom: 8px;
+}
+
+.event-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.event-type {
+  font-size: 18px;
+  font-weight: 600;
+  color: #111827;
+  margin: 0;
+}
+
+.event-time {
+  font-size: 14px;
+  color: #6b7280;
+  white-space: nowrap;
+}
+
+.event-description {
+  font-size: 15px;
+  color: #4b5563;
+  margin: 4px 0;
+  line-height: 1.5;
+}
+
+.event-location {
+  font-size: 14px;
+  color: #6b7280;
+  margin: 4px 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.location-icon {
+  font-size: 12px;
+}
+
+.event-timestamp {
+  font-size: 13px;
+  color: #9ca3af;
+  margin: 8px 0 0 0;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .timeline-event {
+    gap: 12px;
+  }
+
+  .event-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 4px;
+  }
+
+  .event-type {
+    font-size: 16px;
+  }
+
+  .event-time {
+    font-size: 13px;
+  }
+}

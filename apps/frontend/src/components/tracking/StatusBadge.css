@@ -1,0 +1,55 @@
+.status-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 20px;
+  border-radius: 8px;
+  font-weight: 600;
+  font-size: 16px;
+  transition: all 0.3s ease;
+}
+
+.status-icon {
+  font-size: 20px;
+}
+
+.status-text {
+  text-transform: capitalize;
+}
+
+/* Status-specific colors */
+.status-processing {
+  background-color: #dbeafe;
+  color: #1e40af;
+  border: 2px solid #3b82f6;
+}
+
+.status-in-transit {
+  background-color: #fef3c7;
+  color: #92400e;
+  border: 2px solid #f59e0b;
+}
+
+.status-out-for-delivery {
+  background-color: #fed7aa;
+  color: #9a3412;
+  border: 2px solid #f97316;
+}
+
+.status-delivered {
+  background-color: #d1fae5;
+  color: #065f46;
+  border: 2px solid #10b981;
+}
+
+.status-failed {
+  background-color: #fee2e2;
+  color: #991b1b;
+  border: 2px solid #ef4444;
+}
+
+.status-cancelled {
+  background-color: #f3f4f6;
+  color: #374151;
+  border: 2px solid #6b7280;
+}

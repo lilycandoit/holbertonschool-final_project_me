@@ -96,6 +96,56 @@ export const apiService = {
     const response = await api.post('/ai/message-suggestions', data);
     return response.data;
   },
+
+  // Tracking
+  getOrderTracking: async (orderId: string): Promise<{
+    orderId: string;
+    orderNumber: string;
+    trackingNumber: string;
+    status: string;
+    statusMessage: string;
+    sendleTrackingUrl: string | null;
+    estimatedDelivery: string | null;
+    actualDelivery: string | null;
+    currentLocation: string | null;
+    lastUpdated: string;
+    carrierName: string;
+  }> => {
+    const response = await api.get(`/tracking/${orderId}`);
+    return response.data;
+  },
+
+  getOrderTrackingEvents: async (orderId: string): Promise<{
+    orderId: string;
+    orderNumber: string;
+    trackingNumber: string;
+    events: Array<{
+      timestamp: string;
+      eventType: string;
+      description: string;
+      location: string;
+      source: string;
+    }>;
+    totalEvents: number;
+  }> => {
+    const response = await api.get(`/tracking/${orderId}/events`);
+    return response.data;
+  },
+
+  refreshOrderTracking: async (orderId: string): Promise<{
+    orderId: string;
+    orderNumber: string;
+    trackingNumber: string;
+    status: string;
+    statusMessage: string;
+    statusChanged: boolean;
+    sendleTrackingUrl: string | null;
+    lastUpdated: string;
+    newEventsCount: number;
+  }> => {
+    const response = await api.post(`/tracking/${orderId}/refresh`);
+    return response.data;
+  },
 };
 
 export default apiService;

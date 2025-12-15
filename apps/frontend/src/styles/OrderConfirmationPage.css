@@ -375,31 +375,51 @@
 
 /* Action Buttons */
 .action-buttons {
-  /* background: #595E4E; */
   padding: 2rem 2rem 3rem 2rem;
   text-align: center;
+  display: flex;
+  justify-content: center;
+  gap: 1rem;
+  flex-wrap: wrap;
 }
 
+.track-order-btn,
 .back-home-btn {
   display: inline-block;
   padding: 1rem 3rem;
-  width: 550px;
-  background: #595E4E;
-  color: #C8D7C4;
-  border: 2px solid #595E4E;
+  min-width: 250px;
   text-decoration: none;
   border-radius: 6px;
   font-weight: 500;
-  font-size: 30px;
   font-size: 1rem;
   font-family: "Outfit", sans-serif;
   transition: all 0.3s;
   text-transform: capitalize;
+  border: 2px solid transparent;
+}
+
+.track-order-btn {
+  background: #3b82f6;
+  color: white;
+  border-color: #3b82f6;
+}
+
+.track-order-btn:hover {
+  background: #2563eb;
+  border-color: #2563eb;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.4);
+}
+
+.back-home-btn {
+  background: #595E4E;
+  color: #C8D7C4;
+  border-color: #595E4E;
 }
 
 .back-home-btn:hover {
   background: #E0E8E0;
-  border: 2px solid #595E4E;
+  border-color: #595E4E;
   color: #595E4E;
 }
 
