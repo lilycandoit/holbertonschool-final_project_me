@@ -140,7 +140,15 @@ router.get("/:orderId/events", async (req: Request, res: Response) => {
     // 1. tracking_events table (created during order confirmation)
     // 2. sendleWebhookEvents JSON array (from Sendle API updates)
 
-    const formattedEvents = [];
+    interface FormattedEvent {
+      timestamp: string;
+      eventType: string;
+      description: string;
+      location: string;
+      source: string;
+    }
+
+    const formattedEvents: FormattedEvent[] = [];
 
     // Add events from tracking_events table
     if (tracking.events && tracking.events.length > 0) {
