@@ -77,10 +77,10 @@ router.get("/:orderId", async (req: Request, res: Response) => {
       status: tracking.status,
       statusMessage,
       sendleTrackingUrl: tracking.sendleTrackingUrl,
-      estimatedDelivery: tracking.estimatedDelivery,
-      actualDelivery: tracking.actualDelivery,
+      estimatedDelivery: tracking.estimatedDelivery?.toISOString() || null,
+      actualDelivery: tracking.actualDelivery?.toISOString() || null,
       currentLocation: tracking.currentLocation,
-      lastUpdated: tracking.lastWebhookReceivedAt || tracking.updatedAt,
+      lastUpdated: (tracking.lastWebhookReceivedAt || tracking.updatedAt || tracking.createdAt)?.toISOString() || new Date().toISOString(),
       carrierName: tracking.carrierName || 'Sendle',
     };
 
@@ -107,11 +107,19 @@ router.get("/:orderId/events", async (req: Request, res: Response) => {
 
     console.log(`📊 Fetching tracking events for order: ${orderId}`);
 
-    // Find order with tracking
+    // Find order with tracking and events
     const order = await prisma.order.findUnique({
       where: { id: orderId },
       include: {
-        deliveryTracking: true,
+        deliveryTracking: {
+          include: {
+            events: {
+              orderBy: {
+                timestamp: 'desc', // Newest first
+              },
+            },
+          },
+        },
       },
     });
 
@@ -128,24 +136,43 @@ router.get("/:orderId/events", async (req: Request, res: Response) => {
 
     const tracking = order.deliveryTracking;
 
-    // Extract events from sendleWebhookEvents JSON array
-    const events = (tracking.sendleWebhookEvents as any[]) || [];
+    // Combine events from two sources:
+    // 1. tracking_events table (created during order confirmation)
+    // 2. sendleWebhookEvents JSON array (from Sendle API updates)
 
-    // Format events for frontend
-    const formattedEvents = events.map((event: any) => ({
-      timestamp: event.timestamp,
-      eventType: event.event_type,
-      description: event.description,
-      location: event.location || '',
-      source: event.source || 'WEBHOOK',
-    }));
+    const formattedEvents = [];
 
-    // Sort by timestamp (newest first)
+    // Add events from tracking_events table
+    if (tracking.events && tracking.events.length > 0) {
+      tracking.events.forEach((event) => {
+        formattedEvents.push({
+          timestamp: event.timestamp.toISOString(),
+          eventType: event.status,
+          description: event.description,
+          location: event.location || '',
+          source: 'SYSTEM',
+        });
+      });
+    }
+
+    // Add events from sendleWebhookEvents JSON array
+    const webhookEvents = (tracking.sendleWebhookEvents as any[]) || [];
+    webhookEvents.forEach((event: any) => {
+      formattedEvents.push({
+        timestamp: event.timestamp,
+        eventType: event.event_type,
+        description: event.description,
+        location: event.location || '',
+        source: event.source || 'WEBHOOK',
+      });
+    });
+
+    // Sort all events by timestamp (newest first)
     formattedEvents.sort((a, b) =>
       new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
     );
 
-    console.log(`✅ Found ${formattedEvents.length} tracking events`);
+    console.log(`✅ Found ${formattedEvents.length} tracking events (${tracking.events?.length || 0} system, ${webhookEvents.length} webhook)`);
 
     res.json({
       orderId: order.id,
@@ -153,6 +180,7 @@ router.get("/:orderId/events", async (req: Request, res: Response) => {
       trackingNumber: tracking.trackingNumber || 'N/A',
       events: formattedEvents,
       totalEvents: formattedEvents.length,
+      lastUpdated: tracking.updatedAt?.toISOString() || new Date().toISOString(),
     });
 
   } catch (error) {
@@ -204,9 +232,17 @@ router.post("/:orderId/refresh", async (req: Request, res: Response) => {
 
     // Check if we have a Sendle order ID to poll
     if (!tracking.sendleOrderId) {
-      return res.status(400).json({
-        error: 'Cannot refresh tracking',
-        message: 'This order does not have a Sendle shipment yet'
+      console.log(`ℹ️  No Sendle order ID - tracking is local only`);
+      return res.json({
+        orderId: order.id,
+        orderNumber: order.orderNumber,
+        trackingNumber: tracking.trackingNumber || 'N/A',
+        status: tracking.status,
+        statusMessage: INTERNAL_STATUS_MESSAGES[tracking.status] || tracking.status,
+        statusChanged: false,
+        newEventsCount: 0,
+        message: 'No new updates available',
+        note: 'This order does not have a Sendle shipment yet'
       });
     }
 

@@ -2,7 +2,7 @@ name: Security Checks
 
 on:
   push:
-    branches: [ main, li-dev ]
+    branches: [ main, li-dev, new-deploy ]
   pull_request:
     branches: [ main ]
   schedule:

@@ -41,6 +41,24 @@ const TrackingTimeline: React.FC<TrackingTimelineProps> = ({ events }) => {
     return formatTimestamp(timestamp);
   };
 
+  // Map event types to user-friendly names
+  const getEventTypeName = (eventType: string): string => {
+    const eventTypeMap: Record<string, string> = {
+      'ORDER_PLACED': 'Order Placed',
+      'PREPARING': 'Preparing Order',
+      'SHIPPED': 'Shipped',
+      'IN_TRANSIT': 'In Transit',
+      'OUT_FOR_DELIVERY': 'Out for Delivery',
+      'DELIVERED': 'Delivered',
+      'FAILED': 'Delivery Failed',
+      'CANCELLED': 'Cancelled',
+      'Picked Up': 'Picked Up',
+      'Info Received': 'Info Received',
+      'Pickup Scheduled': 'Pickup Scheduled',
+    };
+    return eventTypeMap[eventType] || eventType;
+  };
+
   if (!events || events.length === 0) {
     return (
       <div className="tracking-timeline-empty">
@@ -60,7 +78,7 @@ const TrackingTimeline: React.FC<TrackingTimelineProps> = ({ events }) => {
           </div>
           <div className="timeline-content">
             <div className="event-header">
-              <h4 className="event-type">{event.eventType}</h4>
+              <h4 className="event-type">{getEventTypeName(event.eventType)}</h4>
               <span className="event-time">{getRelativeTime(event.timestamp)}</span>
             </div>
             {event.description && <p className="event-description">{event.description}</p>}
