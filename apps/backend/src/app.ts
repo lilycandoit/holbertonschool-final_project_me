@@ -17,6 +17,7 @@ import subscriptionRoutes from "./routes/subscriptions";
 import paymentRoutes from "./routes/payments";
 import webhookRoutes from "./routes/webhooks";
 import deliveryInfoRoutes from "./routes/deliveryInfo";
+import trackingRoutes from "./routes/tracking";
 import userRoutes from "./routes/users";
 import aiRoutes from "./routes/ai";
 
@@ -41,6 +42,7 @@ app.use("/api/orders", orderRoutes);
 app.use("/api/subscriptions", subscriptionRoutes);
 app.use("/api/payments", paymentRoutes);
 app.use("/api/delivery", deliveryInfoRoutes);
+app.use("/api/tracking", trackingRoutes);
 app.use("/api/users", userRoutes);
 app.use("/api/ai", aiRoutes);
 
@@ -70,6 +72,7 @@ app.get("/", (req, res) => {
       users: "/api/users",
       ai: "/api/ai",
       delivery: "/api/delivery",
+      tracking: "/api/tracking/:orderId",
     },
   });
 });
