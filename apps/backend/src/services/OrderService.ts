@@ -356,7 +356,13 @@ export class OrderService {
     });
 
     // Create delivery tracking record
-    await this.createDeliveryTracking(order);
+    try {
+      await this.createDeliveryTracking(order);
+      console.log(`📦 Delivery tracking created for order: ${order.orderNumber}`);
+    } catch (error) {
+      console.error(`❌ Failed to create delivery tracking for order ${order.orderNumber}:`, error);
+      // Don't fail the order creation - tracking can be created manually if needed
+    }
 
     // Send confirmation email
     await this.emailService.sendOrderConfirmation(order as any);
@@ -521,23 +527,36 @@ export class OrderService {
   private async createDeliveryTracking(order: OrderWithDetails): Promise<void> {
     const trackingNumber = await this.generateTrackingNumber();
 
-    await prisma.deliveryTracking.create({
-      data: {
-        orderId: order.id,
-        trackingNumber,
-        carrierName: "Flora Express",
-        status: "PREPARING",
-        estimatedDelivery: order.requestedDeliveryDate,
-        events: {
-          create: {
-            timestamp: new Date(),
-            status: "ORDER_PLACED",
-            description: "Order has been placed and is being prepared",
-            location: "Flora Marketplace",
+    console.log(`🔍 Creating tracking for order ${order.id}, trackingNumber: ${trackingNumber}`);
+
+    try {
+      await prisma.deliveryTracking.create({
+        data: {
+          orderId: order.id,
+          trackingNumber,
+          carrierName: "Flora Express",
+          status: "PREPARING",
+          estimatedDelivery: order.requestedDeliveryDate || new Date(Date.now() + 3 * 24 * 60 * 60 * 1000), // Default to 3 days from now
+          events: {
+            create: {
+              timestamp: new Date(),
+              status: "ORDER_PLACED",
+              description: "Order has been placed and is being prepared",
+              location: "Flora Marketplace",
+            },
           },
         },
-      },
-    });
+      });
+      console.log(`✅ Tracking record created successfully`);
+    } catch (error) {
+      console.error(`❌ Error creating delivery tracking:`, {
+        orderId: order.id,
+        trackingNumber,
+        requestedDeliveryDate: order.requestedDeliveryDate,
+        error: error instanceof Error ? error.message : error,
+      });
+      throw error; // Re-throw to be caught by caller
+    }
   }
 
   private async updateDeliveryTracking(orderId: string, status: OrderStatus): Promise<void> {

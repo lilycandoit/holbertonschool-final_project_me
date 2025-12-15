@@ -276,36 +276,15 @@ export class PaymentService {
     }
 
     if (orderId) {
-      // Update order status
-      await prisma.order.update({
-        where: { id: orderId },
-        data: {
-          status: "CONFIRMED",
-        },
-      });
+      // Use OrderService.confirmOrder() to ensure tracking is created
+      const { OrderService } = await import('./OrderService');
+      const orderService = new OrderService();
 
-      // Update or create payment record
-      await prisma.payment.upsert({
-        where: {
-          stripePaymentIntentId: paymentIntent.id,
-        },
-        create: {
-          orderId,
-          amountCents: paymentIntent.amount,
-          currency: paymentIntent.currency.toUpperCase(),
-          stripePaymentIntentId: paymentIntent.id,
-          stripePaymentMethodId: paymentIntent.payment_method as string | undefined,
-          status: "succeeded",
-          paidAt: new Date(),
-        },
-        update: {
-          stripePaymentMethodId: paymentIntent.payment_method as string | undefined,
-          status: "succeeded",
-          paidAt: new Date(),
-        },
-      });
+      await orderService.confirmOrder(orderId, paymentIntent.id);
+      console.log(`✅ Order confirmed with tracking: ${orderId}`);
 
-      // 📧 Send payment confirmation email
+      // NOTE: confirmOrder() already sends confirmation email, creates payment, and tracking
+      // 📧 Send additional payment confirmation email (optional)
       try {
         const order = await prisma.order.findUnique({
           where: { id: orderId },
