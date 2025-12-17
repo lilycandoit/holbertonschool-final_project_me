@@ -1,15 +1,3 @@
-// ============================================
-// � FLORA MARKETPLACE - PRISMA SCHEMA
-// ============================================
-// Flora marketplace schema with customer focus:
-// - Guest checkout for one-time purchases
-// - User accounts for subscriptions
-// - Flexible subscription system (recurring + spontaneous)
-// - Hardcoded provider system (no vendor management)
-
-// ============================================
-// GENERATOR & DATASOURCE
-// ============================================
 generator client {
   provider = "prisma-client-js"
 }
@@ -19,24 +7,440 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-// ============================================
-// 🛒 PURCHASE & SUBSCRIPTION ENUMS
-// ============================================
+model Product {
+  id                String             @id @default(cuid())
+  name              String
+  description       String
+  priceCents        Int
+  priceRange        PriceRange
+  imageUrl          String?
+  inStock           Boolean            @default(true)
+  stockCount        Int                @default(0)
+  occasions         Occasion[]
+  seasons           Season[]
+  moods             Mood[]
+  colors            Color[]
+  type              ProductType
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+  longDescription   String?
+  isActive          Boolean            @default(true)
+  categoryId        String?
+  cartItems         CartItem[]
+  orderItems        OrderItem[]
+  category          Category?          @relation(fields: [categoryId], references: [id])
+  subscriptionItems SubscriptionItem[]
+
+  @@map("products")
+}
+
+model Category {
+  id          String    @id @default(cuid())
+  name        String    @unique
+  description String?
+  imageUrl    String?
+  isActive    Boolean   @default(true)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  products    Product[]
+
+  @@map("categories")
+}
+
+model User {
+  id                String         @id @default(cuid())
+  email             String         @unique
+  firstName         String?
+  lastName          String?
+  phone             String?
+  role              UserRole       @default(CUSTOMER)
+  createdAt         DateTime       @default(now())
+  updatedAt         DateTime       @updatedAt
+  favoriteOccasions Occasion[]
+  favoriteColors    Color[]
+  favoriteMoods     Mood[]
+  addresses         Address[]
+  carts             Cart[]
+  orders            Order[]
+  subscriptions     Subscription[]
+
+  @@map("users")
+}
+
+model Address {
+  id        String   @id @default(cuid())
+  userId    String
+  label     String?
+  firstName String
+  lastName  String
+  company   String?
+  street1   String
+  street2   String?
+  city      String
+  state     String
+  zipCode   String
+  country   String   @default("US")
+  phone     String?
+  isDefault Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  orders    Order[]  @relation("ShippingAddress")
+
+  @@map("addresses")
+}
+
+model Order {
+  id                    String            @id @default(cuid())
+  orderNumber           String            @unique
+  userId                String?
+  status                OrderStatus       @default(PENDING)
+  subtotalCents         Int
+  shippingCents         Int
+  taxCents              Int
+  discountCents         Int               @default(0)
+  totalCents            Int
+  deliveryType          DeliveryType
+  requestedDeliveryDate DateTime?
+  deliveryNotes         String?
+  shippingAddressId     String?
+  createdAt             DateTime          @default(now())
+  updatedAt             DateTime          @updatedAt
+  purchaseType          PurchaseType
+  guestEmail            String?
+  guestPhone            String?
+  subscriptionId        String?
+  subscriptionType      SubscriptionType?
+  shippingFirstName     String
+  shippingLastName      String
+  shippingStreet1       String
+  shippingStreet2       String?
+  shippingCity          String
+  shippingState         String
+  shippingZipCode       String
+  shippingCountry       String            @default("AU")
+  shippingPhone         String?
+  billingFirstName      String?
+  billingLastName       String?
+  billingStreet1        String?
+  billingStreet2        String?
+  billingCity           String?
+  billingState          String?
+  billingZipCode        String?
+  billingCountry        String?           @default("AU")
+  billingPhone          String?
+  actualDeliveryDate    DateTime?
+  deliveryDistanceKm    Float?
+  deliveryLatitude      Float?
+  deliveryLongitude     Float?
+  deliveryTracking      DeliveryTracking?
+  items                 OrderItem[]
+  shippingAddress       Address?          @relation("ShippingAddress", fields: [shippingAddressId], references: [id])
+  subscription          Subscription?     @relation(fields: [subscriptionId], references: [id])
+  user                  User?             @relation(fields: [userId], references: [id])
+  payments              Payment[]
+  sendleQuote           SendleQuote?
+
+  @@map("orders")
+}
+
+model OrderItem {
+  id                    String            @id @default(cuid())
+  orderId               String
+  productId             String
+  quantity              Int
+  priceCents            Int
+  subscriptionType      SubscriptionType?
+  requestedDeliveryDate DateTime?
+  order                 Order             @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  product               Product           @relation(fields: [productId], references: [id])
+
+  @@map("order_items")
+}
+
+model Subscription {
+  id                    String                     @id @default(cuid())
+  userId                String
+  type                  SubscriptionType
+  status                SubscriptionStatus         @default(ACTIVE)
+  nextDeliveryDate      DateTime?
+  lastDeliveryDate      DateTime?
+  stripeSubscriptionId  String?                    @unique
+  deliveryType          DeliveryType               @default(STANDARD)
+  deliveryNotes         String?
+  shippingFirstName     String
+  shippingLastName      String
+  shippingStreet1       String
+  shippingStreet2       String?
+  shippingCity          String
+  shippingState         String
+  shippingZipCode       String
+  shippingCountry       String                     @default("AU")
+  shippingPhone         String?
+  createdAt             DateTime                   @default(now())
+  updatedAt             DateTime                   @updatedAt
+  failedPaymentCount    Int                        @default(0)
+  lastBillingAttempt    DateTime?
+  lastBillingError      String?
+  nextRetryDate         DateTime?
+  stripeCustomerId      String?
+  stripePaymentMethodId String?
+  orders                Order[]
+  billingEvents         SubscriptionBillingEvent[]
+  items                 SubscriptionItem[]
+  user                  User                       @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("subscriptions")
+}
+
+model SubscriptionItem {
+  id             String       @id @default(cuid())
+  subscriptionId String
+  productId      String
+  quantity       Int          @default(1)
+  product        Product      @relation(fields: [productId], references: [id])
+  subscription   Subscription @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
+
+  @@unique([subscriptionId, productId])
+  @@map("subscription_items")
+}
+
+model SubscriptionBillingEvent {
+  id                    String       @id @default(cuid())
+  subscriptionId        String
+  eventType             String
+  amountCents           Int?
+  skippedItems          Json?
+  stripePaymentIntentId String?      @unique
+  errorCode             String?
+  errorMessage          String?
+  orderId               String?
+  createdAt             DateTime     @default(now())
+  subscription          Subscription @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
+
+  @@index([subscriptionId])
+  @@map("subscription_billing_events")
+}
+
+model Payment {
+  id                    String    @id @default(cuid())
+  orderId               String
+  amountCents           Int
+  currency              String    @default("USD")
+  stripePaymentIntentId String?   @unique
+  stripePaymentMethodId String?
+  status                String
+  paidAt                DateTime?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+  order                 Order     @relation(fields: [orderId], references: [id])
+
+  @@map("payments")
+}
+
+model EmailTemplate {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  subject     String
+  htmlContent String
+  textContent String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("email_templates")
+}
+
+model EmailLog {
+  id           String    @id @default(cuid())
+  toEmail      String
+  subject      String
+  templateName String?
+  status       String
+  orderId      String?
+  userId       String?
+  sentAt       DateTime?
+  errorMessage String?
+  createdAt    DateTime  @default(now())
+
+  @@map("email_logs")
+}
+
+model DeliveryZone {
+  id                    String           @id @default(cuid())
+  name                  String           @unique
+  description           String?
+  zipCodes              String[]
+  cities                String[]
+  standardCostCents     Int
+  expressCostCents      Int?
+  sameDayCostCents      Int?
+  standardDeliveryDays  Int              @default(5)
+  expressDeliveryDays   Int              @default(2)
+  sameDayAvailable      Boolean          @default(false)
+  sameDayCutoffHour     Int?
+  freeDeliveryThreshold Int?
+  weekendDelivery       Boolean          @default(false)
+  holidayDelivery       Boolean          @default(false)
+  isActive              Boolean          @default(true)
+  createdAt             DateTime         @default(now())
+  updatedAt             DateTime         @updatedAt
+  centerLatitude        Float?
+  centerLongitude       Float?
+  radiusKm              Float?           @default(50)
+  deliveryWindows       DeliveryWindow[]
+
+  @@map("delivery_zones")
+}
+
+model DeliveryWindow {
+  id                  String       @id @default(cuid())
+  zoneId              String
+  name                String
+  startTime           String
+  endTime             String
+  additionalCostCents Int          @default(0)
+  isAvailable         Boolean      @default(true)
+  zone                DeliveryZone @relation(fields: [zoneId], references: [id], onDelete: Cascade)
+
+  @@map("delivery_windows")
+}
+
+model DeliveryMethod {
+  id                String       @id @default(cuid())
+  name              String       @unique
+  description       String
+  deliveryType      DeliveryType
+  baseCostCents     Int
+  isActive          Boolean      @default(true)
+  estimatedDays     Int
+  trackingAvailable Boolean      @default(true)
+  signatureRequired Boolean      @default(false)
+  insuranceIncluded Boolean      @default(false)
+  createdAt         DateTime     @default(now())
+  updatedAt         DateTime     @updatedAt
+
+  @@map("delivery_methods")
+}
+
+model DeliveryTracking {
+  id                           String          @id @default(cuid())
+  orderId                      String          @unique
+  trackingNumber               String?         @unique
+  carrierName                  String?
+  status                       String          @default("PREPARING")
+  currentLocation              String?
+  estimatedDelivery            DateTime?
+  actualDelivery               DateTime?
+  deliveredTo                  String?
+  deliveryNotes                String?
+  deliveryPhoto                String?
+  createdAt                    DateTime        @default(now())
+  updatedAt                    DateTime        @updatedAt
+  distanceKm                   Float?
+  googleDistanceMatrixResponse Json?
+  lastWebhookReceivedAt        DateTime?
+  sendleOrderId                String?         @unique
+  sendleQuoteId                String?
+  sendleTrackingUrl            String?
+  sendleWebhookEvents          Json[]          @default([])
+  order                        Order           @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  events                       TrackingEvent[]
+
+  @@map("delivery_tracking")
+}
+
+model TrackingEvent {
+  id                String           @id @default(cuid())
+  trackingId        String
+  timestamp         DateTime
+  location          String?
+  status            String
+  description       String
+  isCustomerVisible Boolean          @default(true)
+  createdAt         DateTime         @default(now())
+  tracking          DeliveryTracking @relation(fields: [trackingId], references: [id], onDelete: Cascade)
+
+  @@map("tracking_events")
+}
+
+model Cart {
+  id        String     @id @default(cuid())
+  userId    String?
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+  items     CartItem[]
+  user      User?      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("carts")
+}
+
+model CartItem {
+  id        String   @id @default(cuid())
+  cartId    String
+  productId String
+  quantity  Int      @default(1)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  cart      Cart     @relation(fields: [cartId], references: [id], onDelete: Cascade)
+  product   Product  @relation(fields: [productId], references: [id])
+
+  @@map("cart_items")
+}
+
+model SendleQuote {
+  id               String   @id @default(cuid())
+  orderId          String?  @unique
+  quoteId          String   @unique
+  priceCents       Int
+  etaDays          Int
+  pickupSuburb     String
+  deliverySuburb   String
+  deliveryPostcode String
+  weightKg         Float    @default(1.0)
+  volumeCm3        Float?
+  expiresAt        DateTime
+  isSelected       Boolean  @default(false)
+  createdAt        DateTime @default(now())
+  order            Order?   @relation(fields: [orderId], references: [id])
+
+  @@index([orderId])
+  @@index([expiresAt])
+  @@map("sendle_quotes")
+}
+
+model WebhookLog {
+  id           String    @id @default(cuid())
+  provider     String
+  eventType    String
+  payload      Json
+  status       String
+  errorMessage String?
+  orderId      String?
+  trackingId   String?
+  createdAt    DateTime  @default(now())
+  processedAt  DateTime?
+
+  @@index([provider, eventType])
+  @@index([createdAt])
+  @@map("webhook_logs")
+}
+
 enum PurchaseType {
-  ONE_TIME      // Guest or user one-time purchase
-  SUBSCRIPTION  // Recurring subscription (requires login)
+  ONE_TIME
+  SUBSCRIPTION
 }
 
 enum SubscriptionType {
-  RECURRING_WEEKLY      // Weekly recurring delivery
-  RECURRING_BIWEEKLY    // Every two weeks
-  RECURRING_MONTHLY     // Monthly recurring delivery
-  RECURRING_QUARTERLY   // Every 3 months
-  RECURRING_YEARLY      // Yearly recurring delivery
-  SPONTANEOUS           // Flexible timing, user decides when (DEPRECATED - use specific variants)
-  SPONTANEOUS_WEEKLY    // Weekly spontaneous delivery (random day each week)
-  SPONTANEOUS_BIWEEKLY  // Biweekly spontaneous delivery (random day every 2 weeks)
-  SPONTANEOUS_MONTHLY   // Monthly spontaneous delivery (random day each month)
+  RECURRING_WEEKLY
+  RECURRING_BIWEEKLY
+  RECURRING_MONTHLY
+  RECURRING_QUARTERLY
+  RECURRING_YEARLY
+  SPONTANEOUS
+  SPONTANEOUS_WEEKLY
+  SPONTANEOUS_BIWEEKLY
+  SPONTANEOUS_MONTHLY
 }
 
 enum SubscriptionStatus {
@@ -44,6 +448,7 @@ enum SubscriptionStatus {
   PAUSED
   CANCELLED
   EXPIRED
+  PAYMENT_FAILED
 }
 
 enum OrderStatus {
@@ -56,10 +461,6 @@ enum OrderStatus {
   REFUNDED
 }
 
-
-// ============================================
-// � PRODUCT FILTER ENUMS
-// ============================================
 enum Occasion {
   BIRTHDAY
   ANNIVERSARY
@@ -130,538 +531,21 @@ enum ProductType {
 }
 
 enum PriceRange {
-  UNDER_25      // Under $25
-  RANGE_25_50   // $25-$50
-  RANGE_50_75   // $50-$75
-  RANGE_75_100  // $75-$100
-  OVER_100      // Over $100
+  UNDER_25
+  RANGE_25_50
+  RANGE_50_75
+  RANGE_75_100
+  OVER_100
 }
 
 enum DeliveryType {
-  STANDARD      // 3-5 business days
-  EXPRESS       // 1-2 business days
-  SAME_DAY      // Same day delivery
-  PICKUP        // Customer pickup
+  STANDARD
+  EXPRESS
+  SAME_DAY
+  PICKUP
 }
 
 enum UserRole {
   CUSTOMER
   ADMIN
 }
-
-// ============================================
-// � PRODUCT CATALOG
-// ============================================
-model Product {
-  id          String      @id @default(cuid())
-  name        String
-  description String      // Short description for cards/listings
-  longDescription String? // Detailed description for product detail page
-  priceCents  Int         // Price in cents (e.g., 2599 = $25.99)
-  priceRange  PriceRange
-  imageUrl    String?
-  inStock     Boolean     @default(true)
-  stockCount  Int         @default(0)
-  isActive    Boolean     @default(true)
-  cartItems   CartItem[]
-
-  // Filter attributes for browsing
-  occasions   Occasion[]
-  seasons     Season[]
-  moods       Mood[]
-  colors      Color[]
-  type        ProductType
-
-  // Relationships
-  categoryId  String?
-  category    Category?   @relation(fields: [categoryId], references: [id])
-  orderItems  OrderItem[]
-  subscriptionItems SubscriptionItem[]
-
-  createdAt   DateTime    @default(now())
-  updatedAt   DateTime    @updatedAt
-
-  @@map("products")
-}
-
-model Category {
-  id          String    @id @default(cuid())
-  name        String    @unique
-  description String?
-  imageUrl    String?
-  isActive    Boolean   @default(true)
-
-  products    Product[]
-
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
-
-  @@map("categories")
-}
-
-// ============================================
-// 👤 USER MANAGEMENT (Customers Only)
-// ============================================
-model User {
-  id          String    @id @default(cuid())
-  email       String    @unique
-  firstName   String?
-  lastName    String?
-  phone       String?
-  role        UserRole  @default(CUSTOMER)
-  carts       Cart[]
-
-  // User preferences for recommendations
-  favoriteOccasions Occasion[]
-  favoriteColors    Color[]
-  favoriteMoods     Mood[]
-
-  // Relationships
-  addresses     Address[]
-  orders        Order[]
-  subscriptions Subscription[]
-
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
-
-  @@map("users")
-}
-
-model Address {
-  id          String  @id @default(cuid())
-  userId      String
-  label       String? // "Home", "Work", "Gift Address"
-  firstName   String
-  lastName    String
-  company     String?
-  street1     String
-  street2     String?
-  city        String
-  state       String
-  zipCode     String
-  country     String  @default("US")
-  phone       String?
-  isDefault   Boolean @default(false)
-
-  user        User    @relation(fields: [userId], references: [id], onDelete: Cascade)
-  orders      Order[] @relation("ShippingAddress")
-
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-
-  @@map("addresses")
-}
-
-// ============================================
-// 🛒 ORDER SYSTEM (One-time & Subscription Orders)
-// ============================================
-model Order {
-  id              String        @id @default(cuid())
-  orderNumber     String        @unique
-
-  // Purchase type and user info
-  purchaseType    PurchaseType
-  userId          String?       // NULL for guest purchases
-  guestEmail      String?       // Email for guest purchases
-  guestPhone      String?       // Phone for guest purchases
-
-  // Subscription reference (if subscription order)
-  subscriptionId  String?
-  subscriptionType SubscriptionType?
-
-  status          OrderStatus   @default(PENDING)
-
-  // Pricing (all in cents)
-  subtotalCents   Int
-  shippingCents   Int
-  taxCents        Int
-  discountCents   Int           @default(0)
-  totalCents      Int
-
-  // Delivery details
-  deliveryType    DeliveryType
-  requestedDeliveryDate DateTime?
-  actualDeliveryDate    DateTime?
-  deliveryNotes   String?
-
-  // Shipping address (recipient/delivery address)
-  shippingAddressId String?
-  shippingFirstName String
-  shippingLastName  String
-  shippingStreet1   String
-  shippingStreet2   String?
-  shippingCity      String
-  shippingState     String
-  shippingZipCode   String
-  shippingCountry   String        @default("AU")
-  shippingPhone     String?
-
-  // Google Distance Matrix integration (cache coordinates and distance)
-  deliveryDistanceKm Float?       // Calculated distance for shipping cost
-  deliveryLatitude   Float?       // Destination coordinates
-  deliveryLongitude  Float?       // Destination coordinates
-
-  // Billing address (sender/payer address)
-  billingFirstName  String?
-  billingLastName   String?
-  billingStreet1    String?
-  billingStreet2    String?
-  billingCity       String?
-  billingState      String?
-  billingZipCode    String?
-  billingCountry    String?       @default("AU")
-  billingPhone      String?
-
-  // Relationships
-  user            User?         @relation(fields: [userId], references: [id])
-  shippingAddress Address?      @relation("ShippingAddress", fields: [shippingAddressId], references: [id])
-  subscription    Subscription? @relation(fields: [subscriptionId], references: [id])
-  items           OrderItem[]
-  payments        Payment[]
-  sendleQuote     SendleQuote?  // Sendle shipping quote (if applicable)
-  deliveryTracking DeliveryTracking?
-
-  createdAt       DateTime      @default(now())
-  updatedAt       DateTime      @updatedAt
-
-  @@map("orders")
-}
-
-model OrderItem {
-  id            String  @id @default(cuid())
-  orderId       String
-  productId     String
-  quantity      Int
-  priceCents    Int     // Price at time of order
-
-  // Item-specific delivery and subscription details
-  subscriptionType      SubscriptionType?  // Item's subscription type (if subscription)
-  requestedDeliveryDate DateTime?          // Item's requested delivery date
-
-  order         Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  product       Product @relation(fields: [productId], references: [id])
-
-  @@map("order_items")
-}
-
-// ============================================
-// 🔄 SUBSCRIPTION SYSTEM
-// ============================================
-model Subscription {
-  id              String            @id @default(cuid())
-  userId          String
-  type            SubscriptionType
-  status          SubscriptionStatus @default(ACTIVE)
-
-  // Subscription details
-  nextDeliveryDate DateTime?        // When next delivery is scheduled
-  lastDeliveryDate DateTime?        // When last delivery was made
-
-  // Stripe subscription reference
-  stripeSubscriptionId String?      @unique
-
-  // Delivery preferences
-  deliveryType    DeliveryType      @default(STANDARD)
-  deliveryNotes   String?
-
-  // Inline shipping address (like Order model - no separate Address table)
-  shippingFirstName String
-  shippingLastName  String
-  shippingStreet1   String
-  shippingStreet2   String?
-  shippingCity      String
-  shippingState     String
-  shippingZipCode   String
-  shippingCountry   String        @default("AU")
-  shippingPhone     String?
-
-  // Subscription items and generated orders
-  items           SubscriptionItem[]
-  orders          Order[]
-
-  // Only user relationship - no address table dependency
-  user            User              @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  createdAt       DateTime          @default(now())
-  updatedAt       DateTime          @updatedAt
-
-  @@map("subscriptions")
-}
-
-model SubscriptionItem {
-  id              String        @id @default(cuid())
-  subscriptionId  String
-  productId       String
-  quantity        Int           @default(1)
-
-  subscription    Subscription  @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
-  product         Product       @relation(fields: [productId], references: [id])
-
-  @@unique([subscriptionId, productId])
-  @@map("subscription_items")
-}
-
-// ============================================
-// 💳 PAYMENT SYSTEM
-// ============================================
-model Payment {
-  id              String    @id @default(cuid())
-  orderId         String
-  amountCents     Int
-  currency        String    @default("USD")
-
-  // Payment provider details (Stripe)
-  stripePaymentIntentId String? @unique
-  stripePaymentMethodId String?
-
-  status          String    // succeeded, pending, failed, etc.
-  paidAt          DateTime?
-
-  order           Order     @relation(fields: [orderId], references: [id])
-
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
-
-  @@map("payments")
-}
-
-// ============================================
-// 📧 EMAIL & NOTIFICATIONS
-// ============================================
-model EmailTemplate {
-  id          String    @id @default(cuid())
-  name        String    @unique
-  subject     String
-  htmlContent String
-  textContent String?
-  isActive    Boolean   @default(true)
-
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
-
-  @@map("email_templates")
-}
-
-model EmailLog {
-  id          String    @id @default(cuid())
-  toEmail     String
-  subject     String
-  templateName String?
-  status      String    // sent, failed, pending
-  orderId     String?
-  userId      String?
-  sentAt      DateTime?
-  errorMessage String?
-
-  createdAt   DateTime  @default(now())
-
-  @@map("email_logs")
-}
-
-// ============================================
-// 🚚 DELIVERY MANAGEMENT
-// ============================================
-model DeliveryZone {
-  id              String       @id @default(cuid())
-  name            String       @unique
-  description     String?
-  zipCodes        String[]     // Array of supported zip codes
-  cities          String[]     // Array of supported cities
-
-  // Google Maps integration (zone center for distance calculation)
-  centerLatitude  Float?       // Zone center latitude
-  centerLongitude Float?       // Zone center longitude
-  radiusKm        Float?       @default(50)  // Delivery radius from center
-
-  // Delivery options and pricing (all in cents)
-  standardCostCents   Int      // Standard delivery cost
-  expressCostCents    Int?     // Express delivery cost (if available)
-  sameDayCostCents    Int?     // Same day delivery cost (if available)
-
-  // Delivery timing
-  standardDeliveryDays Int     @default(5)  // 3-5 business days
-  expressDeliveryDays  Int     @default(2)  // 1-2 business days
-  sameDayAvailable     Boolean @default(false)
-  sameDayCutoffHour    Int?    // Hour of day (24h format) for same-day cutoff
-
-  // Special pricing rules
-  freeDeliveryThreshold Int?   // Free delivery if order over this amount
-  weekendDelivery      Boolean @default(false)
-  holidayDelivery      Boolean @default(false)
-
-  // Delivery windows
-  deliveryWindows     DeliveryWindow[]
-
-  isActive        Boolean      @default(true)
-
-  createdAt       DateTime     @default(now())
-  updatedAt       DateTime     @updatedAt
-
-  @@map("delivery_zones")
-}
-
-model DeliveryWindow {
-  id              String        @id @default(cuid())
-  zoneId          String
-  name            String        // "Morning", "Afternoon", "Evening"
-  startTime       String        // "09:00"
-  endTime         String        // "12:00"
-  additionalCostCents Int       @default(0) // Extra cost for time window
-  isAvailable     Boolean       @default(true)
-
-  zone            DeliveryZone  @relation(fields: [zoneId], references: [id], onDelete: Cascade)
-
-  @@map("delivery_windows")
-}
-
-model DeliveryMethod {
-  id              String    @id @default(cuid())
-  name            String    @unique
-  description     String
-  deliveryType    DeliveryType
-  baseCostCents   Int       // Base cost in cents
-  isActive        Boolean   @default(true)
-
-  // Delivery characteristics
-  estimatedDays   Int       // Estimated delivery days
-  trackingAvailable Boolean @default(true)
-  signatureRequired Boolean @default(false)
-  insuranceIncluded Boolean @default(false)
-
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
-
-  @@map("delivery_methods")
-}
-
-model DeliveryTracking {
-  id              String    @id @default(cuid())
-  orderId         String    @unique
-  trackingNumber  String?   @unique
-  carrierName     String?   // "Flora Express", "Local Courier"
-
-  // Tracking status
-  status          String    @default("PREPARING") // PREPARING, SHIPPED, IN_TRANSIT, OUT_FOR_DELIVERY, DELIVERED
-  currentLocation String?
-  estimatedDelivery DateTime?
-  actualDelivery  DateTime?
-
-  // Delivery details
-  deliveredTo     String?   // Name of person who received
-  deliveryNotes   String?   // Special delivery instructions
-  deliveryPhoto   String?   // Photo proof of delivery
-
-  // Sendle integration fields
-  sendleOrderId       String?   @unique  // Sendle order reference
-  sendleQuoteId       String?            // Quote used for this shipment
-  sendleTrackingUrl   String?            // Direct Sendle tracking link
-  distanceKm          Float?             // Distance from origin to destination
-  googleDistanceMatrixResponse Json?    // Cache Google API response
-  sendleWebhookEvents Json[]    @default([])  // Store webhook payloads
-  lastWebhookReceivedAt DateTime?        // Track webhook freshness
-
-  // Tracking events
-  events          TrackingEvent[]
-
-  // Relation to Order
-  order           Order     @relation(fields: [orderId], references: [id], onDelete: Cascade)
-
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
-
-  @@map("delivery_tracking")
-}
-
-model TrackingEvent {
-  id              String    @id @default(cuid())
-  trackingId      String
-  timestamp       DateTime
-  location        String?
-  status          String    // "ORDER_PLACED", "PREPARING", "SHIPPED", "IN_TRANSIT", "DELIVERED"
-  description     String
-  isCustomerVisible Boolean @default(true)
-
-  tracking        DeliveryTracking @relation(fields: [trackingId], references: [id], onDelete: Cascade)
-
-  createdAt       DateTime  @default(now())
-
-  @@map("tracking_events")
-}
-
-// ============================================
-// 🛒 CART SYSTEM
-// ============================================
-model Cart {
-  id        String     @id @default(cuid())
-  userId    String?
-  user      User?      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  items     CartItem[]
-
-  createdAt DateTime   @default(now())
-  updatedAt DateTime   @updatedAt
-
-  @@map("carts")
-}
-
-model CartItem {
-  id        String   @id @default(cuid())
-  cartId    String
-  productId String
-  quantity  Int      @default(1)
-
-  cart      Cart     @relation(fields: [cartId], references: [id], onDelete: Cascade)
-  product   Product  @relation(fields: [productId], references: [id])
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@map("cart_items")
-}
-
-// ============================================
-// 📦 SENDLE INTEGRATION
-// ============================================
-model SendleQuote {
-  id              String    @id @default(cuid())
-  orderId         String?   @unique
-  quoteId         String    @unique  // From Sendle API
-  priceCents      Int
-  etaDays         Int
-  pickupSuburb    String
-  deliverySuburb  String
-  deliveryPostcode String
-  weightKg        Float     @default(1.0)
-  volumeCm3       Float?
-  expiresAt       DateTime
-  isSelected      Boolean   @default(false)
-
-  order           Order?    @relation(fields: [orderId], references: [id])
-
-  createdAt       DateTime  @default(now())
-
-  @@index([orderId])
-  @@index([expiresAt])
-  @@map("sendle_quotes")
-}
-
-// ============================================
-// 🔗 WEBHOOK LOGGING (Debugging & Audit)
-// ============================================
-model WebhookLog {
-  id          String    @id @default(cuid())
-  provider    String    // "SENDLE", "STRIPE"
-  eventType   String
-  payload     Json
-  status      String    // "PROCESSED", "FAILED", "PENDING"
-  errorMessage String?
-  orderId     String?
-  trackingId  String?
-
-  createdAt   DateTime  @default(now())
-  processedAt DateTime?
-
-  @@index([provider, eventType])
-  @@index([createdAt])
-  @@map("webhook_logs")
-}
-
