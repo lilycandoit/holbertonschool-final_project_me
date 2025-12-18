@@ -722,4 +722,291 @@ Thank you for shopping with Flora!
     }
   }
 
+  // ========== WEEK 4: SUBSCRIPTION EMAIL TEMPLATES ==========
+
+  /**
+   * Send subscription renewal success email
+   * Includes: items delivered, amount charged, next delivery date, skipped items (if any)
+   */
+  async sendSubscriptionRenewalSuccess(params: {
+    to: string;
+    customerName: string;
+    subscriptionType: string;
+    items: Array<{ name: string; quantity: number; price: string }>;
+    skippedItems?: Array<{ name: string; reason: string }>;
+    totalAmount: string;
+    nextDeliveryDate: string;
+    subscriptionUrl?: string;
+  }): Promise<void> {
+    const { to, customerName, subscriptionType, items, skippedItems, totalAmount, nextDeliveryDate, subscriptionUrl } = params;
+
+    const itemsHtml = items.map(item => `
+      <tr>
+        <td style="padding: 8px; border-bottom: 1px solid #e5e7eb;">${item.quantity}x ${item.name}</td>
+        <td style="padding: 8px; border-bottom: 1px solid #e5e7eb; text-align: right;">${item.price}</td>
+      </tr>
+    `).join('');
+
+    const skippedItemsHtml = skippedItems && skippedItems.length > 0 ? `
+      <div style="background-color: #fef3c7; padding: 15px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #f59e0b;">
+        <h3 style="color: #d97706; margin-top: 0;">⚠️ Items Unavailable (Not Charged)</h3>
+        ${skippedItems.map(item => `
+          <p style="margin: 5px 0;">• ${item.name} - ${item.reason}</p>
+        `).join('')}
+      </div>
+    ` : '';
+
+    const html = `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <meta charset="UTF-8">
+        </head>
+        <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
+          <div style="background-color: #16a34a; color: white; padding: 20px; border-radius: 8px 8px 0 0;">
+            <h1 style="margin: 0; font-size: 24px;">🌸 Subscription Renewed!</h1>
+          </div>
+
+          <div style="background-color: #f9fafb; padding: 20px; border-radius: 0 0 8px 8px;">
+            <p>Hi ${customerName},</p>
+            <p>Your <strong>${subscriptionType}</strong> Flora subscription has been renewed successfully!</p>
+
+            <div style="background-color: white; padding: 15px; border-radius: 8px; margin: 20px 0;">
+              <h3 style="color: #16a34a; margin-top: 0;">Items Delivered:</h3>
+              <table style="width: 100%; border-collapse: collapse;">
+                ${itemsHtml}
+                <tr>
+                  <td style="padding: 12px 8px; font-weight: bold; border-top: 2px solid #16a34a;">Total Charged</td>
+                  <td style="padding: 12px 8px; font-weight: bold; text-align: right; border-top: 2px solid #16a34a;">${totalAmount}</td>
+                </tr>
+              </table>
+            </div>
+
+            ${skippedItemsHtml}
+
+            <div style="background-color: #e8f5e9; padding: 15px; border-radius: 8px; margin: 20px 0;">
+              <p style="margin: 0;"><strong>📅 Next Delivery:</strong> ${nextDeliveryDate}</p>
+            </div>
+
+            ${subscriptionUrl ? `
+              <div style="text-align: center; margin: 20px 0;">
+                <a href="${subscriptionUrl}" style="display: inline-block; padding: 12px 30px; background-color: #16a34a; color: white; text-decoration: none; border-radius: 5px; font-weight: bold;">Manage Subscription</a>
+              </div>
+            ` : ''}
+
+            <p style="color: #666; font-size: 14px; margin-top: 30px;">Thank you for supporting local florists! 🌺</p>
+            <p style="color: #666; font-size: 14px;">– Flora Team</p>
+          </div>
+        </body>
+      </html>
+    `;
+
+    await this.sendEmail({
+      to,
+      subject: '🌸 Your Flora Subscription Has Been Renewed',
+      html
+    });
+  }
+
+  /**
+   * Send subscription payment failed email
+   * Includes retry attempt number and next retry date
+   */
+  async sendSubscriptionPaymentFailed(params: {
+    to: string;
+    customerName: string;
+    subscriptionType: string;
+    attempt: 1 | 2 | 3;
+    nextRetryDate?: string;
+    updatePaymentUrl?: string;
+  }): Promise<void> {
+    const { to, customerName, subscriptionType, attempt, nextRetryDate, updatePaymentUrl } = params;
+
+    const retryMessages = {
+      1: {
+        title: 'Payment Issue with Your Subscription',
+        message: 'We were unable to process your subscription renewal payment.',
+        action: nextRetryDate ? `We'll automatically retry in 3 days (${nextRetryDate}).` : 'We\'ll retry soon.'
+      },
+      2: {
+        title: 'Second Payment Attempt Failed',
+        message: 'We tried to process your subscription renewal again, but the payment failed.',
+        action: nextRetryDate ? `Final automatic retry in 4 days (${nextRetryDate}).` : 'Final retry coming soon.'
+      },
+      3: {
+        title: 'Final Payment Attempt Failed',
+        message: 'This is the third failed payment attempt for your subscription renewal.',
+        action: 'Your subscription will be cancelled if payment is not updated.'
+      }
+    };
+
+    const { title, message, action } = retryMessages[attempt];
+
+    const html = `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <meta charset="UTF-8">
+        </head>
+        <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
+          <div style="background-color: #ef4444; color: white; padding: 20px; border-radius: 8px 8px 0 0;">
+            <h1 style="margin: 0; font-size: 24px;">⚠️ ${title}</h1>
+          </div>
+
+          <div style="background-color: #f9fafb; padding: 20px; border-radius: 0 0 8px 8px;">
+            <p>Hi ${customerName},</p>
+            <p>${message}</p>
+
+            <div style="background-color: #fee2e2; padding: 15px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #dc2626;">
+              <p style="margin: 0;"><strong>Subscription:</strong> ${subscriptionType}</p>
+              <p style="margin: 10px 0 0 0;"><strong>Attempt:</strong> ${attempt} of 3</p>
+            </div>
+
+            <div style="background-color: white; padding: 15px; border-radius: 8px; margin: 20px 0;">
+              <h3 style="color: #dc2626; margin-top: 0;">What happens next?</h3>
+              <p>${action}</p>
+            </div>
+
+            ${updatePaymentUrl ? `
+              <div style="text-align: center; margin: 20px 0;">
+                <a href="${updatePaymentUrl}" style="display: inline-block; padding: 12px 30px; background-color: #dc2626; color: white; text-decoration: none; border-radius: 5px; font-weight: bold;">Update Payment Method</a>
+              </div>
+            ` : ''}
+
+            <p style="color: #666; font-size: 14px; margin-top: 30px;">If you need help, please contact our support team.</p>
+            <p style="color: #666; font-size: 14px;">– Flora Team</p>
+          </div>
+        </body>
+      </html>
+    `;
+
+    await this.sendEmail({
+      to,
+      subject: `⚠️ Payment Issue - Subscription Renewal Attempt ${attempt}/3`,
+      html
+    });
+  }
+
+  /**
+   * Send subscription expired email
+   * Sent after 3 failed payment attempts
+   */
+  async sendSubscriptionExpired(params: {
+    to: string;
+    customerName: string;
+    subscriptionType: string;
+    reactivateUrl?: string;
+  }): Promise<void> {
+    const { to, customerName, subscriptionType, reactivateUrl } = params;
+
+    const html = `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <meta charset="UTF-8">
+        </head>
+        <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
+          <div style="background-color: #6b7280; color: white; padding: 20px; border-radius: 8px 8px 0 0;">
+            <h1 style="margin: 0; font-size: 24px;">Subscription Expired</h1>
+          </div>
+
+          <div style="background-color: #f9fafb; padding: 20px; border-radius: 0 0 8px 8px;">
+            <p>Hi ${customerName},</p>
+            <p>Your <strong>${subscriptionType}</strong> Flora subscription has been cancelled after 3 failed payment attempts.</p>
+
+            <div style="background-color: #f3f4f6; padding: 15px; border-radius: 8px; margin: 20px 0;">
+              <p style="margin: 0;">We're sorry to see you go! Your subscription is now inactive and no further charges will be attempted.</p>
+            </div>
+
+            <div style="background-color: #e8f5e9; padding: 15px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #16a34a;">
+              <h3 style="color: #16a34a; margin-top: 0;">Want to Continue?</h3>
+              <p>You can reactivate your subscription anytime by updating your payment method.</p>
+            </div>
+
+            ${reactivateUrl ? `
+              <div style="text-align: center; margin: 20px 0;">
+                <a href="${reactivateUrl}" style="display: inline-block; padding: 12px 30px; background-color: #16a34a; color: white; text-decoration: none; border-radius: 5px; font-weight: bold;">Reactivate Subscription</a>
+              </div>
+            ` : ''}
+
+            <p style="color: #666; font-size: 14px; margin-top: 30px;">Thank you for being a Flora customer. We hope to see you again soon!</p>
+            <p style="color: #666; font-size: 14px;">– Flora Team</p>
+          </div>
+        </body>
+      </html>
+    `;
+
+    await this.sendEmail({
+      to,
+      subject: 'Your Flora Subscription Has Expired',
+      html
+    });
+  }
+
+  /**
+   * Send all items unavailable email
+   * Sent when renewal is skipped because all products are out of stock
+   */
+  async sendSubscriptionAllItemsUnavailable(params: {
+    to: string;
+    customerName: string;
+    subscriptionType: string;
+    unavailableItems: Array<{ name: string; reason: string }>;
+    nextAttemptDate: string;
+    manageUrl?: string;
+  }): Promise<void> {
+    const { to, customerName, subscriptionType, unavailableItems, nextAttemptDate, manageUrl } = params;
+
+    const itemsHtml = unavailableItems.map(item => `
+      <p style="margin: 5px 0;">• <strong>${item.name}</strong> - ${item.reason}</p>
+    `).join('');
+
+    const html = `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <meta charset="UTF-8">
+        </head>
+        <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
+          <div style="background-color: #f59e0b; color: white; padding: 20px; border-radius: 8px 8px 0 0;">
+            <h1 style="margin: 0; font-size: 24px;">📦 Subscription Renewal Skipped</h1>
+          </div>
+
+          <div style="background-color: #f9fafb; padding: 20px; border-radius: 0 0 8px 8px;">
+            <p>Hi ${customerName},</p>
+            <p>Your <strong>${subscriptionType}</strong> subscription renewal was scheduled, but all items are currently unavailable.</p>
+
+            <div style="background-color: #fef3c7; padding: 15px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #f59e0b;">
+              <h3 style="color: #d97706; margin-top: 0;">Unavailable Items:</h3>
+              ${itemsHtml}
+            </div>
+
+            <div style="background-color: white; padding: 15px; border-radius: 8px; margin: 20px 0;">
+              <h3 style="color: #f59e0b; margin-top: 0;">What happens next?</h3>
+              <p>• <strong>No charge</strong> has been made to your payment method</p>
+              <p>• Your subscription remains <strong>active</strong></p>
+              <p>• We'll try again on <strong>${nextAttemptDate}</strong></p>
+              <p>• You can modify your subscription items anytime</p>
+            </div>
+
+            ${manageUrl ? `
+              <div style="text-align: center; margin: 20px 0;">
+                <a href="${manageUrl}" style="display: inline-block; padding: 12px 30px; background-color: #f59e0b; color: white; text-decoration: none; border-radius: 5px; font-weight: bold;">Manage Subscription</a>
+              </div>
+            ` : ''}
+
+            <p style="color: #666; font-size: 14px; margin-top: 30px;">We apologize for the inconvenience. Stock levels update frequently!</p>
+            <p style="color: #666; font-size: 14px;">– Flora Team</p>
+          </div>
+        </body>
+      </html>
+    `;
+
+    await this.sendEmail({
+      to,
+      subject: '📦 Subscription Renewal Skipped - Items Unavailable',
+      html
+    });
+  }
+
 }
