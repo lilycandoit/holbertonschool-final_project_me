@@ -3,7 +3,7 @@ import Stripe from 'stripe';
 import BillingService from './billingService';
 import InventoryValidator, { AvailableItem, SkippedItem } from './inventoryValidator';
 import { EmailService } from '../EmailService';
-import OrderService from '../OrderService';
+import { OrderService } from '../OrderService';
 
 const prisma = new PrismaClient();
 

@@ -36,7 +36,9 @@
     "restock": "node update-all-stock.js",
     "migrate:cloudinary": "tsx src/scripts/migrate-to-cloudinary.ts",
     "update-tracking": "tsx src/scripts/update-tracking.ts",
-    "test:webhook": "tsx src/scripts/test-webhook.ts"
+    "test:webhook": "tsx src/scripts/test-webhook.ts",
+    "process-renewals": "tsx src/scripts/process-renewals.ts",
+    "retry-subscriptions": "tsx src/scripts/retry-subscriptions.ts"
   },
   "dependencies": {
     "@google/generative-ai": "^0.24.1",

@@ -1,0 +1,55 @@
+name: Retry Failed Subscription Payments
+
+on:
+  schedule:
+    # Run daily at 10:00 AM UTC (8:00 PM Melbourne time during standard time)
+    - cron: '0 10 * * *'
+  workflow_dispatch:  # Allow manual trigger from GitHub Actions UI
+
+jobs:
+  retries:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v2
+        with:
+          version: 8
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Generate Prisma Client
+        working-directory: ./apps/backend
+        run: npx prisma generate
+
+      - name: Retry failed subscription payments
+        run: pnpm --filter backend run retry-subscriptions
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          STRIPE_SECRET_KEY: ${{ secrets.STRIPE_SECRET_KEY }}
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+          FRONTEND_URL: ${{ secrets.FRONTEND_URL }}
+
+      - name: Success summary
+        if: success()
+        run: |
+          echo "✅ Payment retry processing completed successfully!"
+          echo "🔄 Failed payments retried (Attempts 2 & 3)"
+          echo "📧 Notification emails sent to affected customers"
+          echo "⚠️  Subscriptions with 3 failures marked as EXPIRED"
+
+      - name: Notify on failure
+        if: failure()
+        run: |
+          echo "❌ Retry processing failed - check logs above"
+          echo "🔔 Manual intervention may be required"
+          echo "📋 Review subscriptions with PAYMENT_FAILED status"

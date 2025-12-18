@@ -1,0 +1,53 @@
+name: Process Subscription Renewals
+
+on:
+  schedule:
+    # Run daily at 2:00 AM UTC (12:00 PM Melbourne time during standard time)
+    - cron: '0 2 * * *'
+  workflow_dispatch:  # Allow manual trigger from GitHub Actions UI
+
+jobs:
+  renewals:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v2
+        with:
+          version: 8
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Generate Prisma Client
+        working-directory: ./apps/backend
+        run: npx prisma generate
+
+      - name: Process subscription renewals
+        run: pnpm --filter backend run process-renewals
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          STRIPE_SECRET_KEY: ${{ secrets.STRIPE_SECRET_KEY }}
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+          FRONTEND_URL: ${{ secrets.FRONTEND_URL }}
+
+      - name: Success summary
+        if: success()
+        run: |
+          echo "✅ Subscription renewals processed successfully!"
+          echo "📅 Scheduled renewals charged and orders created"
+          echo "📧 Confirmation emails sent to customers"
+
+      - name: Notify on failure
+        if: failure()
+        run: |
+          echo "❌ Renewal processing failed - check logs above"
+          echo "🔔 Manual intervention may be required"
