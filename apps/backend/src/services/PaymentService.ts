@@ -71,6 +71,127 @@ export class PaymentService {
     return customer;
   }
 
+  /**
+   * Create SetupIntent for saving payment method WITHOUT charging
+   * Used for subscription payment setup
+   */
+  async createSetupIntent(userId: string): Promise<{ clientSecret: string }> {
+    try {
+      // Get or create Stripe customer
+      const user = await prisma.user.findUnique({
+        where: { id: userId },
+      });
+
+      if (!user) {
+        throw new Error('User not found');
+      }
+
+      // Check if user already has a customer ID
+      const existingSubscription = await prisma.subscription.findFirst({
+        where: {
+          userId,
+          stripeCustomerId: { not: null },
+        },
+      });
+
+      let customerId: string;
+
+      if (existingSubscription?.stripeCustomerId) {
+        customerId = existingSubscription.stripeCustomerId;
+      } else {
+        // Create new Stripe customer
+        const customer = await this.createCustomer({
+          email: user.email,
+          name: user.firstName && user.lastName
+            ? `${user.firstName} ${user.lastName}`
+            : undefined,
+          phone: user.phone || undefined,
+        });
+        customerId = customer.id;
+      }
+
+      // Create SetupIntent
+      const setupIntent = await stripe.setupIntents.create({
+        customer: customerId,
+        payment_method_types: ['card'],
+        usage: 'off_session', // Critical for recurring billing
+      });
+
+      return { clientSecret: setupIntent.client_secret! };
+    } catch (error) {
+      console.error('[PaymentService] Error creating SetupIntent:', error);
+      throw new Error('Failed to create setup intent');
+    }
+  }
+
+  /**
+   * Attach payment method to customer and update subscription
+   */
+  async attachPaymentMethodToSubscription(
+    subscriptionId: string,
+    paymentMethodId: string
+  ): Promise<void> {
+    try {
+      // Get subscription with user
+      const subscription = await prisma.subscription.findUnique({
+        where: { id: subscriptionId },
+        include: { user: true },
+      });
+
+      if (!subscription) {
+        throw new Error('Subscription not found');
+      }
+
+      // Get or create Stripe customer
+      let customerId: string;
+      const existingSubscription = await prisma.subscription.findFirst({
+        where: {
+          userId: subscription.userId,
+          stripeCustomerId: { not: null },
+        },
+      });
+
+      if (existingSubscription?.stripeCustomerId) {
+        customerId = existingSubscription.stripeCustomerId;
+      } else {
+        const customer = await this.createCustomer({
+          email: subscription.user.email,
+          name: subscription.user.firstName && subscription.user.lastName
+            ? `${subscription.user.firstName} ${subscription.user.lastName}`
+            : undefined,
+          phone: subscription.user.phone || undefined,
+        });
+        customerId = customer.id;
+      }
+
+      // Attach payment method to customer
+      await stripe.paymentMethods.attach(paymentMethodId, {
+        customer: customerId,
+      });
+
+      // Set as default payment method
+      await stripe.customers.update(customerId, {
+        invoice_settings: {
+          default_payment_method: paymentMethodId,
+        },
+      });
+
+      // Update subscription record
+      await prisma.subscription.update({
+        where: { id: subscriptionId },
+        data: {
+          stripeCustomerId: customerId,
+          stripePaymentMethodId: paymentMethodId,
+        },
+      });
+
+      console.log(`[PaymentService] Payment method attached to subscription ${subscriptionId}`);
+    } catch (error) {
+      console.error('[PaymentService] Error attaching payment method:', error);
+      throw new Error('Failed to attach payment method');
+    }
+  }
+
   async createSubscription(data: {
     customerId: string;
     priceId: string;

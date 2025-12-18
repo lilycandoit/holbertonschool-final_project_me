@@ -194,43 +194,11 @@ export class SubscriptionService {
 
   // Background job method: Process all due subscription deliveries
   // This would typically run daily via a cron job or task scheduler
+  // UPDATED: Now delegates to RenewalService which handles payment charging
   async processSubscriptionDeliveries(): Promise<void> {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-
-    // Find all active subscriptions that are due for delivery today
-    // Now includes spontaneous subscriptions with scheduled random dates
-    const dueSubscriptions = await prisma.subscription.findMany({
-      where: {
-        status: SubscriptionStatus.ACTIVE,
-        nextDeliveryDate: {
-          lte: today, // Due today or overdue
-        },
-      },
-      include: {
-        items: {
-          include: {
-            product: true,
-          },
-        },
-      },
-    });
-
-    for (const subscription of dueSubscriptions) {
-      // Create order for subscription delivery
-      await this.createSubscriptionOrder(subscription);
-
-      // Update next delivery date for recurring processing
-      await prisma.subscription.update({
-        where: { id: subscription.id },
-        data: {
-          nextDeliveryDate: this.calculateNextDelivery(
-            subscription.nextDeliveryDate ?? new Date(),
-            subscription.type
-          ),
-        },
-      });
-    }
+    const RenewalService = require('./subscription/renewalService').default;
+    const renewalService = new RenewalService();
+    await renewalService.processRenewals();
   }
 
   // Create an actual order for a subscription delivery using inline address
@@ -272,7 +240,7 @@ export class SubscriptionService {
       const deliveryFee = SubscriptionService.getDeliveryFee(subscription.deliveryType);
 
       // Create the order using your teammate's service
-      const order = await this.orderService.createOrder(orderData);
+      await this.orderService.createOrder(orderData);
 
       console.log(`✅ Created subscription order for subscription ${subscription.id}`);
       console.log(`   💰 Order total includes $${(deliveryFee / 100).toFixed(2)} delivery fee`);

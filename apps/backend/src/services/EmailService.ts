@@ -694,4 +694,32 @@ Thank you for shopping with Flora!
     }
   }
 
+  /**
+   * Generic email sending method for custom emails
+   * Used by subscription billing services for renewal notifications
+   */
+  async sendEmail(params: {
+    to: string;
+    subject: string;
+    html: string;
+    text?: string;
+  }): Promise<void> {
+    const { to, subject, html, text } = params;
+
+    try {
+      await this.resend.emails.send({
+        from: `Flora Marketplace <${this.fromEmail}>`,
+        to: [to],
+        subject,
+        html,
+        text,
+      });
+
+      console.log(`✅ Email sent to ${to}: ${subject}`);
+    } catch (error) {
+      console.error(`❌ Failed to send email to ${to}:`, error);
+      throw error;
+    }
+  }
+
 }
