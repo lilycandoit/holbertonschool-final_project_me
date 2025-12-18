@@ -530,4 +530,89 @@ export class SubscriptionService {
         return 0;
     }
   }
+
+  // WEEK 4: Modify subscription items (add/remove products)
+  async modifySubscriptionItems(
+    subscriptionId: string,
+    action: 'add' | 'remove',
+    productId: string,
+    quantity: number = 1
+  ) {
+    console.log(`[SubscriptionService] ${action.toUpperCase()} product ${productId} to/from subscription ${subscriptionId}`);
+
+    // Verify product exists
+    const product = await prisma.product.findUnique({
+      where: { id: productId }
+    });
+
+    if (!product) {
+      throw new Error(`Product ${productId} not found`);
+    }
+
+    if (action === 'add') {
+      // Check if item already exists
+      const existingItem = await prisma.subscriptionItem.findFirst({
+        where: {
+          subscriptionId,
+          productId
+        }
+      });
+
+      if (existingItem) {
+        // Update quantity
+        await prisma.subscriptionItem.update({
+          where: { id: existingItem.id },
+          data: { quantity: existingItem.quantity + quantity }
+        });
+      } else {
+        // Add new item
+        await prisma.subscriptionItem.create({
+          data: {
+            subscriptionId,
+            productId,
+            quantity
+          }
+        });
+      }
+    } else {
+      // Remove item
+      const itemToRemove = await prisma.subscriptionItem.findFirst({
+        where: {
+          subscriptionId,
+          productId
+        }
+      });
+
+      if (!itemToRemove) {
+        throw new Error(`Product ${productId} not found in subscription`);
+      }
+
+      await prisma.subscriptionItem.delete({
+        where: { id: itemToRemove.id }
+      });
+    }
+
+    // Return updated subscription with items
+    return this.getSubscription(subscriptionId);
+  }
+
+  // WEEK 4: Get billing history for a subscription
+  async getBillingHistory(subscriptionId: string) {
+    console.log(`[SubscriptionService] Fetching billing history for subscription ${subscriptionId}`);
+
+    const billingEvents = await prisma.subscriptionBillingEvent.findMany({
+      where: { subscriptionId },
+      orderBy: { createdAt: 'desc' },
+      include: {
+        subscription: {
+          select: {
+            type: true,
+            status: true
+          }
+        }
+      }
+    });
+
+    return billingEvents;
+  }
 }

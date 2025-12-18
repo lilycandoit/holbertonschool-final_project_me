@@ -478,4 +478,138 @@ export class SubscriptionController {
       });
     }
   };
+
+  // WEEK 4: Create Stripe SetupIntent for saving payment method
+  createSetupIntent = async (req: AuthRequest, res: Response): Promise<void> => {
+    try {
+      const userId = req.user?.id;
+      const userEmail = req.user?.email;
+
+      if (!userId || !userEmail) {
+        res.status(401).json({
+          success: false,
+          error: 'Authentication required'
+        });
+        return;
+      }
+
+      console.log('💳 Creating SetupIntent for user:', userEmail);
+
+      // Create SetupIntent via PaymentService
+      const setupIntent = await this.paymentService.createSetupIntent(userEmail);
+
+      const response: ApiResponse = {
+        success: true,
+        data: {
+          clientSecret: setupIntent.client_secret,
+          setupIntentId: setupIntent.id
+        },
+        message: 'SetupIntent created successfully'
+      };
+      res.json(response);
+    } catch (error: any) {
+      console.error('Create SetupIntent error:', error);
+      res.status(500).json({
+        success: false,
+        error: error.message || 'Failed to create SetupIntent'
+      });
+    }
+  };
+
+  // WEEK 4: Modify subscription items (add/remove products)
+  modifySubscriptionItems = async (req: AuthRequest, res: Response): Promise<void> => {
+    try {
+      const { id } = req.params;
+      const userId = req.user?.id;
+      const { action, productId, quantity = 1 } = req.body;
+
+      if (!userId) {
+        res.status(401).json({ success: false, error: 'Unauthorized' });
+        return;
+      }
+
+      // Verify ownership
+      const existing = await this.subscriptionService.getSubscription(id);
+      if (!existing || existing.userId !== userId) {
+        res.status(404).json({
+          success: false,
+          error: 'Subscription not found'
+        });
+        return;
+      }
+
+      // Validate action
+      if (!['add', 'remove'].includes(action)) {
+        res.status(400).json({
+          success: false,
+          error: 'Invalid action. Must be "add" or "remove"'
+        });
+        return;
+      }
+
+      console.log(`✏️ ${action.toUpperCase()} product ${productId} ${action === 'add' ? 'to' : 'from'} subscription ${id}`);
+
+      // Modify items via service
+      const updatedSubscription = await this.subscriptionService.modifySubscriptionItems(
+        id,
+        action,
+        productId,
+        quantity
+      );
+
+      const response: ApiResponse = {
+        success: true,
+        data: updatedSubscription,
+        message: `Product ${action === 'add' ? 'added to' : 'removed from'} subscription successfully`
+      };
+      res.json(response);
+    } catch (error: any) {
+      console.error('Modify subscription items error:', error);
+      res.status(500).json({
+        success: false,
+        error: error.message || 'Failed to modify subscription items'
+      });
+    }
+  };
+
+  // WEEK 4: Get billing history for a subscription
+  getBillingHistory = async (req: AuthRequest, res: Response): Promise<void> => {
+    try {
+      const { id } = req.params;
+      const userId = req.user?.id;
+
+      if (!userId) {
+        res.status(401).json({ success: false, error: 'Unauthorized' });
+        return;
+      }
+
+      // Verify ownership
+      const existing = await this.subscriptionService.getSubscription(id);
+      if (!existing || existing.userId !== userId) {
+        res.status(404).json({
+          success: false,
+          error: 'Subscription not found'
+        });
+        return;
+      }
+
+      console.log(`📊 Fetching billing history for subscription ${id}`);
+
+      // Get billing events via service
+      const billingHistory = await this.subscriptionService.getBillingHistory(id);
+
+      const response: ApiResponse = {
+        success: true,
+        data: billingHistory,
+        message: 'Billing history retrieved successfully'
+      };
+      res.json(response);
+    } catch (error) {
+      console.error('Get billing history error:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Failed to retrieve billing history'
+      });
+    }
+  };
 }

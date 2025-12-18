@@ -53,6 +53,15 @@ router.post(
   subscriptionController.createSpontaneousDelivery
 );
 
+// WEEK 4: Create SetupIntent for saving payment method
+router.post('/setup-intent', subscriptionController.createSetupIntent);
+
+// WEEK 4: Modify subscription items (add/remove products)
+router.patch('/:id/items', subscriptionController.modifySubscriptionItems);
+
+// WEEK 4: Get billing history
+router.get('/:id/billing-history', subscriptionController.getBillingHistory);
+
 // Admin routes (uncomment when admin middleware is ready)
 // router.get("/admin/stats", adminMiddleware, subscriptionController.getSubscriptionStats);
 
