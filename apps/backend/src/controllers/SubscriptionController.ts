@@ -496,14 +496,11 @@ export class SubscriptionController {
       console.log('💳 Creating SetupIntent for user:', userEmail);
 
       // Create SetupIntent via PaymentService
-      const setupIntent = await this.paymentService.createSetupIntent(userEmail);
+      const setupIntent = await this.paymentService.createSetupIntent(userId);
 
       const response: ApiResponse = {
         success: true,
-        data: {
-          clientSecret: setupIntent.client_secret,
-          setupIntentId: setupIntent.id
-        },
+        data: setupIntent,
         message: 'SetupIntent created successfully'
       };
       res.json(response);
