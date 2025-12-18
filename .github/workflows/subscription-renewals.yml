@@ -31,6 +31,12 @@ jobs:
         working-directory: ./apps/backend
         run: npx prisma generate
 
+      - name: Deploy database migrations
+        working-directory: ./apps/backend
+        run: npx prisma migrate deploy
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+
       - name: Process subscription renewals
         run: pnpm --filter backend run process-renewals
         env:
