@@ -415,6 +415,359 @@
   margin-left: auto;
 }
 
+.cancelled-message {
+  color: #8a8a7a;
+  font-size: 0.95rem;
+  margin: 0;
+  font-style: italic;
+  font-family: "EB Garamond", sans-serif;
+}
+
+.billing-history-link {
+  background: transparent;
+  border: none;
+  color: #8a8a7a;
+  font-size: 0.875rem;
+  cursor: pointer;
+  padding: 0.75rem 0;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-family: "EB Garamond", sans-serif;
+  transition: color 0.3s;
+  margin-top: 0.5rem;
+  border-top: 1px solid #e5e5e0;
+}
+
+.billing-history-link:hover {
+  color: #6b7a5e;
+}
+
+/* Billing History Section */
+.billing-history {
+  margin-top: 1rem;
+  background: #f9fafb;
+  padding: 1rem;
+  border-radius: 6px;
+  border: 1px solid #e5e5e0;
+}
+
+.billing-history h4 {
+  color: #5a5a4a;
+  font-size: 1rem;
+  font-weight: 600;
+  margin: 0 0 1rem 0;
+  font-family: "Outfit", sans-serif;
+}
+
+.billing-events {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.billing-event {
+  background: white;
+  padding: 1rem;
+  border-radius: 6px;
+  border-left: 4px solid #d1d5db;
+  transition: all 0.3s;
+}
+
+.billing-event:hover {
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+.billing-event.renewal-success {
+  border-left-color: #00a854;
+}
+
+.billing-event.renewal-failed {
+  border-left-color: #d14343;
+}
+
+.billing-event.retry-attempt {
+  border-left-color: #c97a00;
+}
+
+.billing-event.skipped-item {
+  border-left-color: #0066cc;
+}
+
+.event-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.5rem;
+}
+
+.event-type {
+  font-weight: 600;
+  font-size: 0.95rem;
+  text-transform: capitalize;
+  font-family: "Outfit", sans-serif;
+}
+
+.billing-event.renewal-success .event-type {
+  color: #00a854;
+}
+
+.billing-event.renewal-failed .event-type {
+  color: #d14343;
+}
+
+.billing-event.retry-attempt .event-type {
+  color: #c97a00;
+}
+
+.event-date {
+  color: #8a8a7a;
+  font-size: 0.875rem;
+  font-family: "EB Garamond", sans-serif;
+}
+
+.event-details {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  font-size: 0.875rem;
+}
+
+.event-amount {
+  color: #5a5a4a;
+  font-weight: 600;
+  font-family: "Outfit", sans-serif;
+}
+
+.event-error {
+  color: #d14343;
+  font-size: 0.875rem;
+  font-family: "EB Garamond", sans-serif;
+}
+
+.skipped-items {
+  background: #fef3c7;
+  padding: 0.75rem;
+  border-radius: 4px;
+  border-left: 3px solid #f59e0b;
+}
+
+.skipped-label {
+  color: #d97706;
+  font-weight: 600;
+  font-size: 0.875rem;
+  display: block;
+  margin-bottom: 0.5rem;
+  font-family: "Outfit", sans-serif;
+}
+
+.skipped-list {
+  margin: 0;
+  padding-left: 1.25rem;
+  color: #8a8a7a;
+  font-size: 0.875rem;
+  font-family: "EB Garamond", sans-serif;
+}
+
+.skipped-list li {
+  margin: 0.25rem 0;
+}
+
+.no-billing-history {
+  color: #8a8a7a;
+  font-size: 0.875rem;
+  text-align: center;
+  padding: 1rem;
+  margin: 0;
+  font-family: "EB Garamond", sans-serif;
+  font-style: italic;
+}
+
+/* Modify Items Section */
+.subscription-items-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1.5rem;
+}
+
+.subscription-items-header h3 {
+  color: #5a5a4a;
+  font-size: 1.125rem;
+  font-weight: 600;
+  margin: 0;
+  font-family: "Outfit", sans-serif;
+}
+
+.edit-items-btn {
+  background: #6b7a5e;
+  color: white;
+  border: none;
+  padding: 0.5rem 1rem;
+  border-radius: 6px;
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.3s;
+  font-family: "Outfit", sans-serif;
+}
+
+.edit-items-btn:hover {
+  background: #5a6a4e;
+  transform: translateY(-1px);
+}
+
+.remove-item-btn {
+  background: #ffe6e6;
+  color: #d14343;
+  border: none;
+  padding: 0.5rem 0.875rem;
+  border-radius: 6px;
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.3s;
+  font-family: "Outfit", sans-serif;
+  margin-left: auto;
+}
+
+.remove-item-btn:hover {
+  background: #ffcccc;
+}
+
+.subscription-item-preview {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.add-product-section {
+  margin-top: 1.5rem;
+  padding: 1.5rem;
+  background: #f9fafb;
+  border-radius: 8px;
+  border: 2px dashed #d1d5db;
+}
+
+.add-product-section h4 {
+  color: #5a5a4a;
+  font-size: 1rem;
+  font-weight: 600;
+  margin: 0 0 1rem 0;
+  font-family: "Outfit", sans-serif;
+}
+
+.product-search-input {
+  width: 100%;
+  padding: 0.75rem 1rem;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  font-size: 0.95rem;
+  font-family: "EB Garamond", sans-serif;
+  transition: all 0.3s;
+}
+
+.product-search-input:focus {
+  outline: none;
+  border-color: #6b7a5e;
+  box-shadow: 0 0 0 3px rgba(107, 122, 94, 0.1);
+}
+
+.product-search-results {
+  margin-top: 1rem;
+  background: white;
+  border-radius: 6px;
+  border: 1px solid #e5e5e0;
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+.product-search-result {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.875rem;
+  border-bottom: 1px solid #e5e5e0;
+  transition: background 0.3s;
+}
+
+.product-search-result:last-child {
+  border-bottom: none;
+}
+
+.product-search-result:hover {
+  background: #f9fafb;
+}
+
+.search-result-thumbnail,
+.search-result-thumbnail-placeholder {
+  width: 50px;
+  height: 50px;
+  border-radius: 6px;
+  object-fit: cover;
+  background: #f0f0eb;
+  flex-shrink: 0;
+}
+
+.search-result-thumbnail-placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.5rem;
+}
+
+.search-result-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.search-result-name {
+  color: #5a5a4a;
+  font-size: 0.95rem;
+  font-weight: 500;
+  margin: 0 0 0.25rem 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: "Outfit", sans-serif;
+}
+
+.search-result-price {
+  color: #6b7a5e;
+  font-size: 0.875rem;
+  font-weight: 600;
+  margin: 0;
+  font-family: "Outfit", sans-serif;
+}
+
+.add-product-btn {
+  background: #e6f7ed;
+  color: #00a854;
+  border: none;
+  padding: 0.5rem 1rem;
+  border-radius: 6px;
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s;
+  font-family: "Outfit", sans-serif;
+  flex-shrink: 0;
+}
+
+.add-product-btn:hover {
+  background: #ccf0dd;
+  transform: translateY(-1px);
+}
+
+.no-search-results {
+  color: #8a8a7a;
+  font-size: 0.875rem;
+  text-align: center;
+  padding: 1.5rem;
+  margin: 0;
+  font-family: "EB Garamond", sans-serif;
+}
+
 /* Responsive Design */
 @media (max-width: 768px) {
   .subscriptions-page {

@@ -29,6 +29,9 @@ router.post(
   subscriptionController.createSubscriptionFromProduct
 );
 
+// WEEK 4: Create SetupIntent for saving payment method (MUST be before /:id)
+router.post('/setup-intent', subscriptionController.createSetupIntent);
+
 // Get user's subscriptions
 router.get('/', subscriptionController.getUserSubscriptions);
 
@@ -39,7 +42,10 @@ router.get('/:id', subscriptionController.getSubscription);
 router.put('/:id', subscriptionController.updateSubscription);
 
 // Pause subscription
-router.post('/:id/pause', subscriptionController.pauseSubscription);
+router.post('/:id/pause', (req, res, next) => {
+  console.log('🔵 PAUSE ROUTE HIT - ID:', req.params.id);
+  next();
+}, subscriptionController.pauseSubscription);
 
 // Resume subscription
 router.post('/:id/resume', subscriptionController.resumeSubscription);
@@ -52,9 +58,6 @@ router.post(
   '/:id/spontaneous',
   subscriptionController.createSpontaneousDelivery
 );
-
-// WEEK 4: Create SetupIntent for saving payment method
-router.post('/setup-intent', subscriptionController.createSetupIntent);
 
 // WEEK 4: Modify subscription items (add/remove products)
 router.patch('/:id/items', subscriptionController.modifySubscriptionItems);

@@ -33,11 +33,22 @@ interface Subscription {
   items: SubscriptionItem[];
 }
 
+interface BillingEvent {
+  id: string;
+  eventType: string;
+  amountCents: number | null;
+  skippedItems: Array<{ productId: string; reason: string }> | null;
+  errorMessage: string | null;
+  createdAt: string;
+}
+
 const SubscriptionsPage = () => {
   const { getAccessToken, user, loading: authLoading } = useAuth();
   const [subscriptions, setSubscriptions] = useState<Subscription[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [billingHistory, setBillingHistory] = useState<Record<string, BillingEvent[]>>({});
+  const [expandedBilling, setExpandedBilling] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
     const fetchSubscriptions = async () => {
@@ -144,6 +155,172 @@ const SubscriptionsPage = () => {
 
   const getStatusDisplay = (status: string) => {
     return status.replace(/_/g, ' ').replace(/\b\w/g, (l) => l.toUpperCase());
+  };
+
+  const fetchBillingHistory = async (subscriptionId: string) => {
+    try {
+      const token = await getAccessToken();
+      if (!token) throw new Error('No access token found');
+
+      logger.log(`📊 Fetching billing history for subscription ${subscriptionId}`);
+      const response = await fetch(
+        `${import.meta.env.VITE_API_URL}/subscriptions/${subscriptionId}/billing-history`,
+        {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+          },
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch billing history');
+      }
+
+      const data = await response.json();
+      logger.log('📊 Billing history response:', data);
+
+      setBillingHistory((prev) => ({
+        ...prev,
+        [subscriptionId]: data.data || [],
+      }));
+    } catch (err: any) {
+      logger.error('❌ Billing history error:', err);
+    }
+  };
+
+  const toggleBillingHistory = async (subscriptionId: string) => {
+    const isExpanded = expandedBilling[subscriptionId];
+
+    if (!isExpanded && !billingHistory[subscriptionId]) {
+      // Fetch billing history if not already loaded
+      await fetchBillingHistory(subscriptionId);
+    }
+
+    setExpandedBilling((prev) => ({
+      ...prev,
+      [subscriptionId]: !isExpanded,
+    }));
+  };
+
+  const pauseSubscription = async (subscriptionId: string) => {
+    try {
+      const token = await getAccessToken();
+      logger.log('🔑 Got token for pause:', token ? 'Token exists' : 'No token');
+      if (!token) {
+        alert('Please log in to pause subscription');
+        return;
+      }
+
+      logger.log(`⏸ Pausing subscription ${subscriptionId}`);
+      const response = await fetch(
+        `${import.meta.env.VITE_API_URL}/subscriptions/${subscriptionId}/pause`,
+        {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+        }
+      );
+
+      logger.log('Response status:', response.status, response.statusText);
+
+      const data = await response.json();
+      logger.log('Response data:', data);
+
+      if (!response.ok) {
+        throw new Error(data.error || data.message || 'Failed to pause subscription');
+      }
+
+      // Refresh subscriptions to show updated status
+      const subsResponse = await apiService.getSubscriptions(token);
+      setSubscriptions(subsResponse.data || []);
+      logger.log('✅ Subscription paused successfully');
+      alert('Subscription paused!');
+    } catch (err: any) {
+      logger.error('❌ Pause subscription error:', err);
+      alert(`Failed to pause subscription: ${err.message}`);
+    }
+  };
+
+  const resumeSubscription = async (subscriptionId: string) => {
+    try {
+      const token = await getAccessToken();
+      if (!token) {
+        alert('Please log in to resume subscription');
+        return;
+      }
+
+      logger.log(`▶ Resuming subscription ${subscriptionId}`);
+      const response = await fetch(
+        `${import.meta.env.VITE_API_URL}/subscriptions/${subscriptionId}/resume`,
+        {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+        }
+      );
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || data.message || 'Failed to resume subscription');
+      }
+
+      // Refresh subscriptions to show updated status
+      const subsResponse = await apiService.getSubscriptions(token);
+      setSubscriptions(subsResponse.data || []);
+      logger.log('✅ Subscription resumed successfully');
+      alert('Subscription resumed!');
+    } catch (err: any) {
+      logger.error('❌ Resume subscription error:', err);
+      alert(`Failed to resume subscription: ${err.message}`);
+    }
+  };
+
+  const cancelSubscription = async (subscriptionId: string) => {
+    const confirmed = window.confirm(
+      'Are you sure you want to cancel this subscription? This action cannot be undone.'
+    );
+
+    if (!confirmed) return;
+
+    try {
+      const token = await getAccessToken();
+      if (!token) {
+        alert('Please log in to cancel subscription');
+        return;
+      }
+
+      logger.log(`❌ Cancelling subscription ${subscriptionId}`);
+      const response = await fetch(
+        `${import.meta.env.VITE_API_URL}/subscriptions/${subscriptionId}`,
+        {
+          method: 'DELETE',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+        }
+      );
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || data.message || 'Failed to cancel subscription');
+      }
+
+      // Refresh subscriptions to show updated status
+      const subsResponse = await apiService.getSubscriptions(token);
+      setSubscriptions(subsResponse.data || []);
+      logger.log('✅ Subscription cancelled successfully');
+      alert('Subscription cancelled');
+    } catch (err: any) {
+      logger.error('❌ Cancel subscription error:', err);
+      alert(`Failed to cancel subscription: ${err.message}`);
+    }
   };
 
   if (authLoading) {
@@ -296,27 +473,95 @@ const SubscriptionsPage = () => {
 
                 <div className="subscription-card-footer">
                   <div className="subscription-actions">
-                    {subscription.status === 'ACTIVE' ? (
-                      <>
-                        <button className="action-btn pause-btn" >
-                          ⏸ Pause
-                        </button>
-                        <button className="action-btn skip-btn" >
-                          ⏭ Skip Next
-                        </button>
-                      </>
-                    ) : subscription.status === 'PAUSED' ? (
-                      <button className="action-btn resume-btn" >
+                    {subscription.status === 'ACTIVE' && (
+                      <button
+                        className="action-btn pause-btn"
+                        onClick={() => pauseSubscription(subscription.id)}
+                      >
+                        ⏸ Pause
+                      </button>
+                    )}
+                    {subscription.status === 'PAUSED' && (
+                      <button
+                        className="action-btn resume-btn"
+                        onClick={() => resumeSubscription(subscription.id)}
+                      >
                         ▶ Resume
                       </button>
-                    ) : null}
-                    <button className="action-btn cancel-btn" >
-                      Cancel
-                    </button>
-                    {/* <span className="coming-soon-text" style={{ fontSize: '0.85rem', color: '#888', marginLeft: '1rem' }}>
-                      (Coming Soon)
-                    </span> */}
+                    )}
+                    {subscription.status !== 'CANCELLED' && (
+                      <button
+                        className="action-btn cancel-btn"
+                        onClick={() => cancelSubscription(subscription.id)}
+                      >
+                        Cancel
+                      </button>
+                    )}
+                    {subscription.status === 'CANCELLED' && (
+                      <p className="cancelled-message">
+                        This subscription has been cancelled
+                      </p>
+                    )}
                   </div>
+
+                  <button
+                    className="billing-history-link"
+                    onClick={() => toggleBillingHistory(subscription.id)}
+                  >
+                    {expandedBilling[subscription.id] ? '▼' : '▶'} View Billing History
+                  </button>
+
+                  {expandedBilling[subscription.id] && (
+                    <div className="billing-history">
+                      {billingHistory[subscription.id]?.length > 0 ? (
+                        <div className="billing-events">
+                          {billingHistory[subscription.id].map((event) => (
+                            <div
+                              key={event.id}
+                              className={`billing-event ${event.eventType.toLowerCase().replace(/_/g, '-')}`}
+                            >
+                              <div className="event-header">
+                                <span className="event-type">
+                                  {event.eventType.replace(/_/g, ' ')}
+                                </span>
+                                <span className="event-date">
+                                  {formatDate(event.createdAt)}
+                                </span>
+                              </div>
+                              <div className="event-details">
+                                {event.amountCents && (
+                                  <span className="event-amount">
+                                    Amount: {formatPrice(event.amountCents)}
+                                  </span>
+                                )}
+                                {event.errorMessage && (
+                                  <span className="event-error">
+                                    Error: {event.errorMessage}
+                                  </span>
+                                )}
+                                {event.skippedItems && event.skippedItems.length > 0 && (
+                                  <div className="skipped-items">
+                                    <span className="skipped-label">
+                                      ⚠️ {event.skippedItems.length} item(s) skipped
+                                    </span>
+                                    <ul className="skipped-list">
+                                      {event.skippedItems.map((item, idx) => (
+                                        <li key={idx}>
+                                          {item.productId}: {item.reason}
+                                        </li>
+                                      ))}
+                                    </ul>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <p className="no-billing-history">No billing events yet. Renewals will appear here.</p>
+                      )}
+                    </div>
+                  )}
                 </div>
               </div>
             ))}
