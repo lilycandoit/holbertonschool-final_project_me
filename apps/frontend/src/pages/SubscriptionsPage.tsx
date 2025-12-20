@@ -66,9 +66,9 @@ const SubscriptionsPage = () => {
         logger.log('📋 Subscriptions response:', response);
 
         setSubscriptions(response.data || []);
-      } catch (err: any) {
+      } catch (err) {
         logger.error('❌ Subscriptions error:', err);
-        setError(`Failed to load subscriptions: ${err.message}`);
+        setError(`Failed to load subscriptions: ${err instanceof Error ? err.message : 'Unknown error'}`);
       } finally {
         setLoading(false);
       }
@@ -183,7 +183,7 @@ const SubscriptionsPage = () => {
         ...prev,
         [subscriptionId]: data.data || [],
       }));
-    } catch (err: any) {
+    } catch (err) {
       logger.error('❌ Billing history error:', err);
     }
   };
@@ -237,9 +237,9 @@ const SubscriptionsPage = () => {
       setSubscriptions(subsResponse.data || []);
       logger.log('✅ Subscription paused successfully');
       alert('Subscription paused!');
-    } catch (err: any) {
+    } catch (err) {
       logger.error('❌ Pause subscription error:', err);
-      alert(`Failed to pause subscription: ${err.message}`);
+      alert(`Failed to pause subscription: ${err instanceof Error ? err.message : 'Unknown error'}`);
     }
   };
 
@@ -274,9 +274,9 @@ const SubscriptionsPage = () => {
       setSubscriptions(subsResponse.data || []);
       logger.log('✅ Subscription resumed successfully');
       alert('Subscription resumed!');
-    } catch (err: any) {
+    } catch (err) {
       logger.error('❌ Resume subscription error:', err);
-      alert(`Failed to resume subscription: ${err.message}`);
+      alert(`Failed to resume subscription: ${err instanceof Error ? err.message : 'Unknown error'}`);
     }
   };
 
@@ -317,9 +317,9 @@ const SubscriptionsPage = () => {
       setSubscriptions(subsResponse.data || []);
       logger.log('✅ Subscription cancelled successfully');
       alert('Subscription cancelled');
-    } catch (err: any) {
+    } catch (err) {
       logger.error('❌ Cancel subscription error:', err);
-      alert(`Failed to cancel subscription: ${err.message}`);
+      alert(`Failed to cancel subscription: ${err instanceof Error ? err.message : 'Unknown error'}`);
     }
   };
 
