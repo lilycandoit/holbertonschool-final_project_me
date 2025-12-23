@@ -20,16 +20,17 @@ Flora is a modern flowers and plants marketplace featuring flexible purchasing o
 
 ### 🌐 Live Application
 
-**👉 [Live URL](https://d1fgjrmf4cfwou.cloudfront.net)** - _⚙️ Hosted via AWS CloudFront (Free Tier)_
+**👉 [Live URL](https://flora-me.vercel.app/)**
 
 **Try these features:**
 
 - 🔍 Search with auto-suggestions (try "rose" or "lily")
 - 🎨 Filter products by color, mood, occasion, or price
 - 🛒 Add items to cart and explore guest checkout
-- 🔐 Login with Google to try subscription features
+- 🔐 Login with Google/Credentials to try subscription features
 - 📅 Schedule deliveries for different dates
 - 🤖 Generate AI-powered gift messages
+- 📦 Check Order History and see Track Order
 
 <!-- Add screenshots/GIFs here after deployment -->
 
@@ -55,6 +56,7 @@ Flora is a modern flowers and plants marketplace featuring flexible purchasing o
 - **Stripe Payment Integration** - Secure payment processing with multiple payment methods
 - **Flexible Delivery Scheduling** - Choose different dates for each item with smart shipping breakdown
 - **Melbourne Metro Coverage** - 100+ postcodes with validation (expansion-ready infrastructure)
+- **Order Tracking** - Real-time delivery status updates with timeline view and email notifications
 - **Order Confirmation** - Detailed summary page with automated email notifications
 
 ### User Account Management
@@ -65,13 +67,53 @@ Flora is a modern flowers and plants marketplace featuring flexible purchasing o
 
 ---
 
+## 🔄 Subscription System (Advanced Feature)
+
+Production-ready recurring billing with automated renewals, payment handling, and intelligent retry logic.
+
+**Key Capabilities:**
+- Unified checkout (mixed one-time + subscription items)
+- Stripe off-session billing with automatic payment method saving
+- Automated renewals via GitHub Actions cron jobs
+- Smart retry system (3 attempts over 7 days)
+- Dynamic pricing (current product prices, not locked-in rates)
+- User controls (pause, resume, cancel)
+
+**Why Off-Session Billing?**
+Uses PaymentIntent (not Stripe Subscriptions API) to support dynamic pricing, multi-vendor scenarios, and flexible product changes.
+
+See **[docs/SUBSCRIPTIONS.md](docs/SUBSCRIPTIONS.md)** for technical architecture, renewal workflow, and testing details.
+
+---
+
+## 📦 Delivery & Tracking System (Advanced Feature)
+
+Hybrid delivery system with real-time tracking, intelligent pricing fallbacks, and automated status updates.
+
+**Key Capabilities:**
+- 4-tier fallback pricing (Sendle → Google Distance → Database → Hardcoded)
+- Automated tracking with dual updates (webhooks + cron polling every 30 min)
+- Customer tracking UI with timeline view
+- Multi-date delivery support (different dates per cart item)
+- Email notifications on status changes
+
+**Why 4-Tier Fallback?**
+Guarantees checkout never fails by cascading through multiple pricing sources. Even if all APIs are down, hardcoded fallback ($8.99) ensures customers can complete purchases.
+
+See **[docs/DELIVERY.md](docs/DELIVERY.md)** for technical architecture, API integrations, and feature flag configuration.
+
+---
+
 ## 🛠️ Tech Stack
 
 **Frontend**
 
 - React 19 + TypeScript
 - Vite (development & build tool)
-- Auth0 (authentication)
+- React Router (routing)
+- Auth0 React SDK (authentication)
+- Stripe React (payment UI)
+- date-fns (date handling)
 - Custom CSS styling
 
 **Backend**
@@ -79,15 +121,19 @@ Flora is a modern flowers and plants marketplace featuring flexible purchasing o
 - Node.js + Express + TypeScript
 - Prisma ORM + PostgreSQL
 - Auth0 JWT authentication
-- Stripe payment processing
-- Email service integration
+- Stripe payment processing (PaymentIntent + off-session billing)
+- Google Gemini AI (gift message generation)
+- Resend (email service)
+- Google Distance Matrix API (delivery distance calculation)
+- Sendle API (shipping quotes & tracking)
 
 **DevOps**
 
-- Docker containerization
+- Docker containerization (local development)
 - pnpm workspaces (monorepo)
-- GitHub Actions CI/CD
+- GitHub Actions CI/CD (automated testing + cron jobs)
 - 80 automated tests with Jest
+- Vercel (frontend & backend deployment)
 
 ---
 
@@ -228,36 +274,30 @@ docker exec flora-backend pnpm test:coverage
 
 ## 📚 Documentation
 
-Detailed guides for development, testing, and database management:
+Detailed guides for development, testing, and system architecture:
 
+- **[Subscription System](docs/SUBSCRIPTIONS.md)** - Renewal workflow, off-session billing, retry logic
+- **[Delivery & Tracking](docs/DELIVERY.md)** - 4-tier fallback, API integrations, tracking automation
 - **[Docker Setup Guide](docs/DOCKER_GUIDE.md)** - Daily workflow, Docker commands, troubleshooting
 - **[Database Guide](docs/DATABASE.md)** - Prisma migrations, schema changes, seeding
 - **[Testing and CI/CD Guide](docs/TESTING_GUIDE.md)** - Comprehensive testing documentation, CI/CD pipeline
 
 ---
 
-## 🚀 Future Development
+## 🚀 Future Roadmap
 
-Features planned for post-graduation development:
+Features planned for future development:
 
-**User Experience Enhancements:**
+**User Experience:**
 
-- 📱 Mobile responsive design
 - 👤 User preferences and saved favorites
-- 📦 Advanced delivery tracking system
 - ⭐ Product reviews and ratings
 
 **Platform Features:**
 
 - 🛠️ Admin dashboard for platform management
-- 🏪 Seller dashboard for vendor management
+- 🏪 Seller dashboard for vendor management (multi-vendor marketplace expansion)
 - 🤖 AI-powered product description generator for sellers
-
-**Payment & Subscription System:**
-
-- 💳 Stripe recurring billing integration for automated subscription payments
-- 🔄 Automated order creation and processing for scheduled deliveries
-- ⏸️ Full subscription management (pause, resume, cancel, skip delivery)
 
 ---
 
