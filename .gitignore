@@ -24,6 +24,8 @@ build/
 .env.*
 apps/*/.env
 apps/*/.env.*
+!.env.example
+!apps/*/.env.example
 
 # Prisma
 prisma/dev.db
@@ -55,7 +57,8 @@ coverage/
 
 .pnpm-store
 
-# Terraform
+# Terraform and AWS
+.aws/
 .terraform/
 *.tfstate
 *.tfstate.backup

@@ -1,67 +1,52 @@
 import { EmailService } from '../services/EmailService';
-import nodemailer from 'nodemailer';
 import { User, Order } from '@prisma/client';
 
-// Mock nodemailer
-jest.mock('nodemailer');
-const mockNodemailer = nodemailer as jest.Mocked<typeof nodemailer>;
+// Create a mock send function that we can track
+const mockSendFunction = jest.fn().mockResolvedValue({ id: 'test-email-id' });
+
+// Mock the Resend library
+jest.mock('resend', () => {
+  return {
+    Resend: jest.fn().mockImplementation(() => ({
+      emails: {
+        send: mockSendFunction,
+      },
+    })),
+  };
+});
 
 describe('EmailService Tests', () => {
   let emailService: EmailService;
-  let mockTransporter: jest.Mocked<nodemailer.Transporter>;
 
   beforeEach(() => {
     // Reset mocks
     jest.clearAllMocks();
+    mockSendFunction.mockClear();
 
     // Mock environment variables
-    process.env.SMTP_HOST = 'smtp.test.com';
-    process.env.SMTP_PORT = '587';
-    process.env.SMTP_SECURE = 'false';
-    process.env.SMTP_USER = 'test@flora.com';
-    process.env.SMTP_PASS = 'test-password';
+    process.env.RESEND_API_KEY = 'test-resend-key';
+    process.env.FROM_EMAIL = 'test@flora.com';
 
-    // Create mock transporter
-    mockTransporter = {
-      sendMail: jest.fn().mockResolvedValue({ messageId: 'test-message-id' }),
-      verify: jest.fn((callback: (error: Error | null) => void) => callback(null)),
-    } as any;
-
-    mockNodemailer.createTransport.mockReturnValue(mockTransporter);
-
-    // Create EmailService instance
+    // Create EmailService instance (Resend is mocked)
     emailService = new EmailService();
   });
 
   describe('constructor', () => {
-    test('should create transporter with correct config', () => {
-      expect(mockNodemailer.createTransport).toHaveBeenCalledWith({
-        host: 'smtp.test.com',
-        port: 587,
-        secure: false,
-        auth: {
-          user: 'test@flora.com',
-          pass: 'test-password',
-        },
-      });
+    test('should initialize with RESEND_API_KEY', () => {
+      expect(emailService).toBeDefined();
     });
 
-    test('should use default values when env vars not set', () => {
-      delete process.env.SMTP_HOST;
-      delete process.env.SMTP_PORT;
-      delete process.env.SMTP_SECURE;
+    test('should throw error when RESEND_API_KEY is missing', () => {
+      delete process.env.RESEND_API_KEY;
+      delete process.env.SMTP_PASS;
 
-      new EmailService();
+      expect(() => new EmailService()).toThrow('RESEND_API_KEY is required');
+    });
 
-      expect(mockNodemailer.createTransport).toHaveBeenCalledWith({
-        host: 'smtp.gmail.com',
-        port: 587,
-        secure: false,
-        auth: {
-          user: 'test@flora.com',
-          pass: 'test-password',
-        },
-      });
+    test('should use FROM_EMAIL from environment', () => {
+      process.env.FROM_EMAIL = 'custom@flora.com';
+      const service = new EmailService();
+      expect(service).toBeDefined();
     });
   });
 
@@ -83,17 +68,14 @@ describe('EmailService Tests', () => {
 
       await emailService.sendWelcomeEmail(mockUser);
 
-      expect(mockTransporter.sendMail).toHaveBeenCalledWith({
-        from: '"Flora Marketplace" <test@flora.com>',
-        to: 'user@example.com',
-        subject: 'Welcome to Flora!',
-        html: expect.stringContaining('Dear John'),
-      });
-
-      const sentEmail = mockTransporter.sendMail.mock.calls[0][0];
-      expect(sentEmail.html).toContain('red, blue flowers');
-      expect(sentEmail.html).toContain('birthday, anniversary');
-      expect(sentEmail.html).toContain('romantic, cheerful');
+      expect(mockSendFunction).toHaveBeenCalledWith(
+        expect.objectContaining({
+          from: 'Flora Marketplace <test@flora.com>',
+          to: 'user@example.com',
+          subject: 'Welcome to Flora!',
+          html: expect.stringContaining('Dear John'),
+        })
+      );
     });
 
     test('should send welcome email to user without name', async () => {
@@ -113,298 +95,383 @@ describe('EmailService Tests', () => {
 
       await emailService.sendWelcomeEmail(mockUser);
 
-      expect(mockTransporter.sendMail).toHaveBeenCalledWith({
-        from: '"Flora Marketplace" <test@flora.com>',
-        to: 'user@example.com',
-        subject: 'Welcome to Flora!',
-        html: expect.stringContaining('Dear Customer'),
-      });
+      expect(mockSendFunction).toHaveBeenCalledWith(
+        expect.objectContaining({
+          from: 'Flora Marketplace <test@flora.com>',
+          to: 'user@example.com',
+          subject: 'Welcome to Flora!',
+          html: expect.stringContaining('Dear Customer'),
+        })
+      );
+    });
 
-      const sentEmail = mockTransporter.sendMail.mock.calls[0][0];
-      expect(sentEmail.html).not.toContain('Based on your preferences');
+    test('should include personalization for user preferences', async () => {
+      const mockUser: User = {
+        id: 'user-123',
+        email: 'user@example.com',
+        firstName: 'Jane',
+        lastName: 'Smith',
+        phone: null,
+        role: 'CUSTOMER' as any,
+        favoriteColors: ['PINK'],
+        favoriteOccasions: ['WEDDING'],
+        favoriteMoods: ['ELEGANT'],
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
+
+      await emailService.sendWelcomeEmail(mockUser);
+
+      expect(mockSendFunction).toHaveBeenCalledWith(
+        expect.objectContaining({
+          html: expect.stringContaining('pink'),
+        })
+      );
     });
   });
 
   describe('sendOrderConfirmation', () => {
     test('should send order confirmation to authenticated user', async () => {
-      const mockOrder = {
+      const mockOrder: any = {
         id: 'order-123',
-        orderNumber: 'FLR202501010001',
-        totalCents: 2999,
-        subtotalCents: 2500,
-        createdAt: new Date(),
+        orderNumber: 'ORD-001',
+        userId: 'user-123',
         guestEmail: null,
+        totalCents: 5000,
+        subtotalCents: 4500,
         shippingFirstName: 'John',
         shippingLastName: 'Doe',
         shippingStreet1: '123 Main St',
         shippingStreet2: null,
-        shippingCity: 'Anytown',
-        shippingState: 'CA',
-        shippingZipCode: '12345',
-        requestedDeliveryDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
-        deliveryNotes: 'Leave at front door',
+        shippingCity: 'Melbourne',
+        shippingState: 'VIC',
+        shippingZipCode: '3000',
+        shippingCountry: 'AU',
+        billingFirstName: 'John',
+        billingLastName: 'Doe',
+        billingStreet1: '123 Main St',
+        billingStreet2: null,
+        billingCity: 'Melbourne',
+        billingState: 'VIC',
+        billingZipCode: '3000',
+        billingCountry: 'AU',
+        deliveryType: 'STANDARD',
+        createdAt: new Date(),
         user: {
           id: 'user-123',
           email: 'user@example.com',
           firstName: 'John',
           lastName: 'Doe',
         },
+        items: [],
       };
 
-      await emailService.sendOrderConfirmation(mockOrder as any);
+      await emailService.sendOrderConfirmation(mockOrder);
 
-      expect(mockTransporter.sendMail).toHaveBeenCalledWith({
-        from: '"Flora Marketplace" <test@flora.com>',
-        to: 'user@example.com',
-        subject: 'Order Confirmation #FLR202501010001',
-        html: expect.stringContaining('John Doe, thank you for your order!'),
-      });
-
-      const sentEmail = mockTransporter.sendMail.mock.calls[0][0];
-      expect(sentEmail.html).toContain('#FLR202501010001');
-      expect(sentEmail.html).toContain('$29.99');
-      expect(sentEmail.html).toContain('John Doe');
-      expect(sentEmail.html).toContain('123 Main St');
-      expect(sentEmail.html).toContain('Leave at front door');
+      expect(mockSendFunction).toHaveBeenCalledWith(
+        expect.objectContaining({
+          from: 'Flora Marketplace <test@flora.com>',
+          to: 'user@example.com',
+          subject: 'Order Confirmation #ORD-001',
+          html: expect.stringContaining('ORDER CONFIRMATION'),
+        })
+      );
     });
 
     test('should send order confirmation to guest user', async () => {
-      const mockOrder = {
+      const mockOrder: any = {
         id: 'order-123',
-        orderNumber: 'FLR202501010001',
-        totalCents: 2999,
-        subtotalCents: 2500,
-        createdAt: new Date(),
+        orderNumber: 'ORD-002',
+        userId: null,
         guestEmail: 'guest@example.com',
+        totalCents: 3000,
+        subtotalCents: 2500,
         shippingFirstName: 'Jane',
-        shippingLastName: 'Smith',
+        shippingLastName: 'Guest',
         shippingStreet1: '456 Oak Ave',
-        shippingStreet2: 'Apt 2B',
-        shippingCity: 'Other City',
-        shippingState: 'NY',
-        shippingZipCode: '54321',
-        requestedDeliveryDate: null,
-        deliveryNotes: null,
+        shippingStreet2: null,
+        shippingCity: 'Melbourne',
+        shippingState: 'VIC',
+        shippingZipCode: '3001',
+        shippingCountry: 'AU',
+        billingFirstName: 'Jane',
+        billingLastName: 'Guest',
+        billingStreet1: '456 Oak Ave',
+        billingStreet2: null,
+        billingCity: 'Melbourne',
+        billingState: 'VIC',
+        billingZipCode: '3001',
+        billingCountry: 'AU',
+        deliveryType: 'STANDARD',
+        createdAt: new Date(),
         user: null,
+        items: [],
       };
 
-      await emailService.sendOrderConfirmation(mockOrder as any);
+      await emailService.sendOrderConfirmation(mockOrder);
 
-      expect(mockTransporter.sendMail).toHaveBeenCalledWith({
-        from: '"Flora Marketplace" <test@flora.com>',
-        to: 'guest@example.com',
-        subject: 'Order Confirmation #FLR202501010001',
-        html: expect.stringContaining('Jane Smith, thank you for your order!'),
-      });
-
-      const sentEmail = mockTransporter.sendMail.mock.calls[0][0];
-      expect(sentEmail.html).toContain('Jane Smith');
-      expect(sentEmail.html).toContain('456 Oak Ave');
-      expect(sentEmail.html).toContain('Apt 2B');
-      expect(sentEmail.html).not.toContain('Requested Delivery Date');
-      expect(sentEmail.html).not.toContain('Delivery Notes');
+      expect(mockSendFunction).toHaveBeenCalledWith(
+        expect.objectContaining({
+          to: 'guest@example.com',
+          subject: 'Order Confirmation #ORD-002',
+        })
+      );
     });
 
-    test('should handle missing email gracefully', async () => {
-      const mockOrder = {
+    test('should not send if no email found', async () => {
+      const mockOrder: any = {
         id: 'order-123',
-        orderNumber: 'FLR202501010001',
-        totalCents: 2999,
-        createdAt: new Date(),
+        orderNumber: 'ORD-003',
+        userId: null,
         guestEmail: null,
-        shippingFirstName: 'John',
-        shippingLastName: 'Doe',
-        shippingStreet1: '123 Main St',
-        shippingStreet2: null,
-        shippingCity: 'Anytown',
-        shippingState: 'CA',
-        shippingZipCode: '12345',
-        requestedDeliveryDate: null,
-        deliveryNotes: null,
-        user: null, // No user and no guest email
+        totalCents: 1000,
+        subtotalCents: 900,
+        shippingFirstName: 'Test',
+        shippingLastName: 'User',
+        shippingStreet1: '789 Elm St',
+        shippingCity: 'Melbourne',
+        shippingState: 'VIC',
+        shippingZipCode: '3002',
+        deliveryType: 'STANDARD',
+        createdAt: new Date(),
+        user: null,
+        items: [],
       };
 
-      const consoleSpy = jest.spyOn(console, 'warn').mockImplementation();
+      await emailService.sendOrderConfirmation(mockOrder);
 
-      await emailService.sendOrderConfirmation(mockOrder as any);
-
-      expect(consoleSpy).toHaveBeenCalledWith('No email found for order confirmation:', 'order-123');
-      expect(mockTransporter.sendMail).not.toHaveBeenCalled();
-
-      consoleSpy.mockRestore();
+      expect(mockSendFunction).not.toHaveBeenCalled();
     });
   });
 
   describe('sendOrderShipped', () => {
     test('should send shipping notification with tracking number', async () => {
-      const mockOrder = {
+      const mockOrder: any = {
         id: 'order-123',
-        orderNumber: 'FLR202501010001',
+        orderNumber: 'ORD-001',
+        guestEmail: 'user@example.com',
         shippingFirstName: 'John',
         shippingLastName: 'Doe',
         shippingStreet1: '123 Main St',
         shippingStreet2: null,
-        shippingCity: 'Anytown',
-        shippingState: 'CA',
-        shippingZipCode: '12345',
-        requestedDeliveryDate: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000),
-        user: {
-          id: 'user-123',
-          email: 'user@example.com',
-          firstName: 'John',
-          lastName: 'Doe',
-        },
-        guestEmail: null,
+        shippingCity: 'Melbourne',
+        shippingState: 'VIC',
+        shippingZipCode: '3000',
+        requestedDeliveryDate: new Date('2025-01-15'),
+        user: null,
       };
 
-      await emailService.sendOrderShipped(mockOrder as any, 'FLR123456789');
+      await emailService.sendOrderShipped(mockOrder, 'TRACK-12345');
 
-      expect(mockTransporter.sendMail).toHaveBeenCalledWith({
-        from: '"Flora Marketplace" <test@flora.com>',
-        to: 'user@example.com',
-        subject: 'Your Flora Order #FLR202501010001 Has Shipped!',
-        html: expect.stringContaining('FLR123456789'),
-      });
-
-      const sentEmail = mockTransporter.sendMail.mock.calls[0][0];
-      expect(sentEmail.html).toContain('<strong>Tracking Number:</strong> FLR123456789');
-      expect(sentEmail.html).toContain('Expected Delivery');
+      expect(mockSendFunction).toHaveBeenCalledWith(
+        expect.objectContaining({
+          to: 'user@example.com',
+          subject: 'Your Flora Order #ORD-001 Has Shipped!',
+          html: expect.stringContaining('TRACK-12345'),
+        })
+      );
     });
 
     test('should send shipping notification without tracking number', async () => {
-      const mockOrder = {
+      const mockOrder: any = {
         id: 'order-123',
-        orderNumber: 'FLR202501010001',
+        orderNumber: 'ORD-001',
+        guestEmail: 'user@example.com',
         shippingFirstName: 'John',
         shippingLastName: 'Doe',
         shippingStreet1: '123 Main St',
-        shippingStreet2: null,
-        shippingCity: 'Anytown',
-        shippingState: 'CA',
-        shippingZipCode: '12345',
-        requestedDeliveryDate: null,
-        guestEmail: 'guest@example.com',
+        shippingCity: 'Melbourne',
+        shippingState: 'VIC',
+        shippingZipCode: '3000',
         user: null,
       };
 
-      await emailService.sendOrderShipped(mockOrder as any);
+      await emailService.sendOrderShipped(mockOrder);
 
-      expect(mockTransporter.sendMail).toHaveBeenCalledWith({
-        from: '"Flora Marketplace" <test@flora.com>',
-        to: 'guest@example.com',
-        subject: 'Your Flora Order #FLR202501010001 Has Shipped!',
-        html: expect.stringContaining('Dear John Doe'),
-      });
-
-      const sentEmail = mockTransporter.sendMail.mock.calls[0][0];
-      expect(sentEmail.html).not.toContain('Tracking Number');
-      expect(sentEmail.html).not.toContain('Expected Delivery');
-    });
-
-    test('should handle missing email gracefully for shipping notification', async () => {
-      const mockOrder = {
-        id: 'order-123',
-        orderNumber: 'FLR202501010001',
-        shippingFirstName: 'John',
-        shippingLastName: 'Doe',
-        shippingStreet1: '123 Main St',
-        shippingStreet2: null,
-        shippingCity: 'Anytown',
-        shippingState: 'CA',
-        shippingZipCode: '12345',
-        requestedDeliveryDate: null,
-        guestEmail: null,
-        user: null,
-      };
-
-      const consoleSpy = jest.spyOn(console, 'warn').mockImplementation();
-
-      await emailService.sendOrderShipped(mockOrder as any);
-
-      expect(consoleSpy).toHaveBeenCalledWith('No email found for shipping notification:', 'order-123');
-      expect(mockTransporter.sendMail).not.toHaveBeenCalled();
-
-      consoleSpy.mockRestore();
+      expect(mockSendFunction).toHaveBeenCalledWith(
+        expect.objectContaining({
+          to: 'user@example.com',
+          subject: 'Your Flora Order #ORD-001 Has Shipped!',
+        })
+      );
     });
   });
 
-  describe('sendPasswordReset', () => {
-    test('should send password reset email', async () => {
-      process.env.FRONTEND_URL = 'https://flora.example.com';
-
-      await emailService.sendPasswordReset('user@example.com', 'reset-token-123');
-
-      expect(mockTransporter.sendMail).toHaveBeenCalledWith({
-        from: '"Flora Marketplace" <test@flora.com>',
+  describe('sendTrackingUpdate', () => {
+    test('should send tracking update email', async () => {
+      await emailService.sendTrackingUpdate({
         to: 'user@example.com',
-        subject: 'Reset Your Flora Password',
-        html: expect.stringContaining('https://flora.example.com/auth/reset-password?token=reset-token-123'),
+        orderNumber: 'ORD-001',
+        trackingNumber: 'FLR123456789',
+        newStatus: 'IN_TRANSIT',
+        trackingUrl: 'https://flora.com/tracking/ORD-001',
+        customerName: 'John Doe',
       });
 
-      const sentEmail = mockTransporter.sendMail.mock.calls[0][0];
-      expect(sentEmail.html).toContain('Reset Password');
-      expect(sentEmail.html).toContain('1 hour');
+      expect(mockSendFunction).toHaveBeenCalledWith(
+        expect.objectContaining({
+          to: ['user@example.com'],
+          subject: '📦 Delivery Update: ORD-001',
+          html: expect.stringContaining('IN_TRANSIT'),
+          text: expect.stringContaining('Tracking Number: FLR123456789'),
+        })
+      );
+    });
+
+    test('should send tracking update without customer name', async () => {
+      await emailService.sendTrackingUpdate({
+        to: 'user@example.com',
+        orderNumber: 'ORD-002',
+        trackingNumber: 'FLR987654321',
+        newStatus: 'DELIVERED',
+      });
+
+      expect(mockSendFunction).toHaveBeenCalledWith(
+        expect.objectContaining({
+          html: expect.stringContaining('Hello'),
+        })
+      );
     });
   });
 
-  describe('sendContactFormSubmission', () => {
-    test('should send contact form submission and confirmation', async () => {
-      const contactData = {
-        name: 'John Doe',
-        email: 'john@example.com',
-        subject: 'Question about flowers',
-        message: 'I have a question about your rose arrangements.\nCan you help me?',
-      };
-
-      process.env.CONTACT_EMAIL = 'support@flora.com';
-
-      await emailService.sendContactFormSubmission(contactData);
-
-      expect(mockTransporter.sendMail).toHaveBeenCalledTimes(2);
-
-      // Check submission email to support
-      const submissionEmail = mockTransporter.sendMail.mock.calls[0][0];
-      expect(submissionEmail).toEqual({
-        from: '"Flora Marketplace" <test@flora.com>',
-        to: 'support@flora.com',
-        subject: 'Contact Form: Question about flowers',
-        replyTo: 'john@example.com',
-        html: expect.stringContaining('John Doe'),
+  describe('sendSubscriptionRenewalSuccess', () => {
+    test('should send renewal success email', async () => {
+      await emailService.sendSubscriptionRenewalSuccess({
+        to: 'user@example.com',
+        customerName: 'John Doe',
+        subscriptionType: 'Weekly Recurring',
+        items: [
+          { name: 'Roses', quantity: 2, price: '$25.00' },
+          { name: 'Lilies', quantity: 1, price: '$15.00' },
+        ],
+        totalAmount: '$40.00',
+        nextDeliveryDate: '2025-02-01',
+        subscriptionUrl: 'https://flora.com/subscriptions/123',
       });
-      expect(submissionEmail.html).toContain('john@example.com');
-      expect(submissionEmail.html).toContain('I have a question about your rose arrangements.<br>Can you help me?');
 
-      // Check confirmation email to user
-      const confirmationEmail = mockTransporter.sendMail.mock.calls[1][0];
-      expect(confirmationEmail).toEqual({
-        from: '"Flora Marketplace" <test@flora.com>',
-        to: 'john@example.com',
-        subject: 'We Received Your Message - Flora',
-        html: expect.stringContaining('Dear John Doe'),
+      expect(mockSendFunction).toHaveBeenCalledWith(
+        expect.objectContaining({
+          to: ['user@example.com'],
+          subject: '🌸 Your Flora Subscription Has Been Renewed',
+          html: expect.stringContaining('Subscription Renewed'),
+        })
+      );
+    });
+
+    test('should include skipped items in renewal email', async () => {
+      await emailService.sendSubscriptionRenewalSuccess({
+        to: 'user@example.com',
+        customerName: 'Jane Smith',
+        subscriptionType: 'Monthly Recurring',
+        items: [{ name: 'Roses', quantity: 1, price: '$20.00' }],
+        skippedItems: [{ name: 'Tulips', reason: 'Out of stock' }],
+        totalAmount: '$20.00',
+        nextDeliveryDate: '2025-03-01',
       });
-      expect(confirmationEmail.html).toContain('within 24 hours');
+
+      expect(mockSendFunction).toHaveBeenCalledWith(
+        expect.objectContaining({
+          html: expect.stringContaining('Items Unavailable'),
+        })
+      );
     });
   });
 
-  describe('error handling', () => {
-    test('should handle transporter sendMail error', async () => {
-      const mockUser: User = {
-        id: 'user-123',
-        email: 'user@example.com',
-        firstName: 'John',
-        lastName: 'Doe',
-        phone: null,
-        role: 'CUSTOMER' as any,
-        favoriteColors: [],
-        favoriteOccasions: [],
-        favoriteMoods: [],
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      };
+  describe('sendSubscriptionPaymentFailed', () => {
+    test('should send payment failed email for attempt 1', async () => {
+      await emailService.sendSubscriptionPaymentFailed({
+        to: 'user@example.com',
+        customerName: 'John Doe',
+        subscriptionType: 'Weekly Recurring',
+        attempt: 1,
+        nextRetryDate: '2025-01-18',
+        updatePaymentUrl: 'https://flora.com/payment-update',
+      });
 
-      mockTransporter.sendMail.mockRejectedValue(new Error('SMTP connection failed'));
+      expect(mockSendFunction).toHaveBeenCalledWith(
+        expect.objectContaining({
+          subject: '⚠️ Payment Issue - Subscription Renewal Attempt 1/3',
+          html: expect.stringMatching(/Attempt.*1 of 3/),
+        })
+      );
+    });
 
-      await expect(emailService.sendWelcomeEmail(mockUser)).rejects.toThrow('SMTP connection failed');
+    test('should send payment failed email for final attempt', async () => {
+      await emailService.sendSubscriptionPaymentFailed({
+        to: 'user@example.com',
+        customerName: 'John Doe',
+        subscriptionType: 'Weekly Recurring',
+        attempt: 3,
+      });
+
+      expect(mockSendFunction).toHaveBeenCalledWith(
+        expect.objectContaining({
+          subject: '⚠️ Payment Issue - Subscription Renewal Attempt 3/3',
+          html: expect.stringContaining('will be cancelled'),
+        })
+      );
+    });
+  });
+
+  describe('sendSubscriptionExpired', () => {
+    test('should send subscription expired email', async () => {
+      await emailService.sendSubscriptionExpired({
+        to: 'user@example.com',
+        customerName: 'John Doe',
+        subscriptionType: 'Weekly Recurring',
+        reactivateUrl: 'https://flora.com/reactivate',
+      });
+
+      expect(mockSendFunction).toHaveBeenCalledWith(
+        expect.objectContaining({
+          subject: 'Your Flora Subscription Has Expired',
+          html: expect.stringContaining('Subscription Expired'),
+        })
+      );
+    });
+  });
+
+  describe('sendSubscriptionAllItemsUnavailable', () => {
+    test('should send all items unavailable email', async () => {
+      await emailService.sendSubscriptionAllItemsUnavailable({
+        to: 'user@example.com',
+        customerName: 'Jane Smith',
+        subscriptionType: 'Monthly Recurring',
+        unavailableItems: [
+          { name: 'Roses', reason: 'Out of stock' },
+          { name: 'Lilies', reason: 'Seasonal unavailable' },
+        ],
+        nextAttemptDate: '2025-02-15',
+        manageUrl: 'https://flora.com/subscriptions/456',
+      });
+
+      expect(mockSendFunction).toHaveBeenCalledWith(
+        expect.objectContaining({
+          subject: '📦 Subscription Renewal Skipped - Items Unavailable',
+          html: expect.stringContaining('Subscription Renewal Skipped'),
+        })
+      );
+    });
+  });
+
+  describe('sendEmail (generic method)', () => {
+    test('should send custom email', async () => {
+      await emailService.sendEmail({
+        to: 'user@example.com',
+        subject: 'Test Subject',
+        html: '<p>Test HTML</p>',
+        text: 'Test Text',
+      });
+
+      expect(mockSendFunction).toHaveBeenCalledWith(
+        expect.objectContaining({
+          from: 'Flora Marketplace <test@flora.com>',
+          to: ['user@example.com'],
+          subject: 'Test Subject',
+          html: '<p>Test HTML</p>',
+          text: 'Test Text',
+        })
+      );
     });
   });
 });
