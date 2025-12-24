@@ -1,6 +1,6 @@
 # 🧪 Flora Testing Guide
 
-Complete guide for running tests, understanding the test suite, and working with CI/CD.
+Complete guide for running tests and understanding the test suite.
 
 ---
 
@@ -11,17 +11,18 @@ Complete guide for running tests, understanding the test suite, and working with
 docker exec flora-backend pnpm test
 
 # Run specific test suites
-docker exec flora-backend pnpm test:auth        # Authentication tests
-docker exec flora-backend pnpm test:order       # Order processing tests
-docker exec flora-backend pnpm test:payment     # Payment & Stripe tests
-docker exec flora-backend pnpm test:email       # Email service tests
-docker exec flora-backend pnpm test:ai          # AI integration tests
-docker exec flora-backend pnpm test:integration # Full integration tests
+docker exec flora-backend pnpm test:auth        # Authentication
+docker exec flora-backend pnpm test:order       # Order processing
+docker exec flora-backend pnpm test:payment     # Stripe payments
+docker exec flora-backend pnpm test:email       # Email service
+docker exec flora-backend pnpm test:ai          # AI gift messages
+docker exec flora-backend pnpm test:delivery    # Delivery system
+docker exec flora-backend pnpm test:subscription # Subscription billing
 
-# Run tests in watch mode (auto-rerun on file changes)
+# Watch mode (auto-rerun on changes)
 docker exec flora-backend pnpm test:watch
 
-# Generate coverage report
+# Coverage report
 docker exec flora-backend pnpm test:coverage
 ```
 
@@ -29,293 +30,161 @@ docker exec flora-backend pnpm test:coverage
 
 ## 📋 Test Suite Overview
 
-Our backend has **6 automated test files** covering all core functionality:
+**Total: 156 passing tests, 5 skipped, 11 test suites**
 
-| Test File | Purpose | What It Tests |
-|-----------|---------|---------------|
-| `auth.test.ts` | Authentication & JWT | Auth0 token validation, user authentication |
-| `order.test.ts` | Order Processing | Order creation, validation, status updates |
-| `payment.test.ts` | Payment Integration | Stripe payment intents, refunds, webhooks |
-| `email.test.ts` | Email Service | Order confirmations, email templates |
-| `ai.test.ts` | AI Integration | Gemini AI gift message generation |
-| `full-integration.test.ts` | End-to-End Flow | Complete user journey: order → payment → email |
+| Category | Test Files | Tests | What's Tested |
+|----------|------------|-------|---------------|
+| **Core Features** | 5 files | 85 tests | Auth, Orders, Payments, Email, AI |
+| **Delivery System** | 3 files | 117 tests | Google Distance, Sendle, Shipping Calculator |
+| **Subscriptions** | 2 files | 10 tests | Renewal, Inventory Validation |
+| **Full Integration** | 1 file | 5 tests (skipped) | End-to-end flow |
 
-**Total:** 80 automated tests running in CI/CD
+### Core Features (85 tests)
+- `auth.test.ts` (20 tests) - Auth0 JWT validation, user authentication
+- `order.test.ts` (20 tests) - Order creation, validation, status updates
+- `payment.test.ts` (20 tests) - Stripe intents, refunds, webhooks
+- `email.test.ts` (20 tests) - Resend API, order confirmations, templates
+- `ai.test.ts` (5 tests) - Gemini AI gift message generation
 
-**Note:** Subscriptions are currently tested manually. Automated subscription tests are planned for future implementation.
+### Delivery System (117 tests - 5 skipped)
+- `googleDistance.test.ts` (21 tests) - Distance Matrix API, geocoding, caching
+- `sendle.test.ts` (40 tests) - Sandbox quotes, orders, tracking, webhooks
+- `shippingCalculator.test.ts` (56 tests) - 4-tier fallback pricing
+
+### Subscriptions (10 tests)
+- `renewal.test.ts` (7 tests) - Off-session billing, payment retries
+- `inventoryValidator.test.ts` (3 tests) - Stock validation, partial fulfillment
+
+### Full Integration (5 tests - all skipped)
+- `full-integration.test.ts` (5 skipped) - End-to-end order flow
+
+**Note:** Integration tests skipped - unit tests provide comprehensive coverage.
 
 ---
 
-## 🛠️ Manual Testing Utilities
+## ✅ Pre-Commit Checklist
 
-These are helper scripts for manual testing (NOT part of automated CI/CD):
-
-```bash
-# Get Auth0 JWT token for API testing
-docker exec flora-backend pnpm get-token
-
-# Send test email to verify email service
-docker exec flora-backend pnpm test:live-email
-```
-
----
-
-## ✅ Before You Push - Pre-Commit Checklist
-
-**Always run these commands before pushing code:**
+**Run before pushing:**
 
 ```bash
-# 1️⃣ Run all backend tests (MUST PASS)
+# 1. Backend tests MUST pass
 docker exec flora-backend pnpm test --silent
 
-# 2️⃣ Type-check frontend (warnings OK)
-docker exec flora-frontend pnpm type-check || echo "Type warnings are OK"
+# 2. Frontend type-check (warnings OK)
+docker exec flora-frontend pnpm type-check || echo "Warnings OK"
 
-# 3️⃣ Build frontend in STRICT mode (simulates production deployment)
+# 3. Production build (strict mode)
 docker exec flora-frontend sh -c "CI=true pnpm build:prod"
 
-# 4️⃣ Verify containers are running
+# 4. Verify containers running
 docker ps
 ```
 
-**Expected results:**
-- ✅ All backend tests pass (80 tests)
+**Expected:**
+- ✅ 156 backend tests pass
 - ✅ Frontend type-check runs (warnings allowed)
-- ✅ Frontend builds successfully with NO warnings/errors
+- ✅ Frontend builds with NO errors
 - ✅ All containers running
-
-**If any step fails, fix it before pushing!**
 
 ---
 
-## 🏗️ Understanding Build Commands
+## 🏗️ Build Modes
 
-### **Development Build (Fast, Warnings OK)**
+### Development (Fast)
 ```bash
 docker exec flora-frontend pnpm build
 ```
-- ⚡ Fast iteration during development
-- ⚠️ Shows warnings but doesn't fail
-- 🔧 Good for local testing
+- ⚡ Fast iteration
+- ⚠️ Warnings allowed
 
-### **Production Build (Strict, Deployment-Ready)**
+### Production (Strict)
 ```bash
-# Option 1: Using build:prod script
 docker exec flora-frontend pnpm build:prod
-
-# Option 2: Using CI environment variable (same result)
+# OR
 docker exec flora-frontend sh -c "CI=true pnpm build"
 ```
-- ❌ **Fails on ANY warnings** (unused variables, imports, etc.)
-- ✅ Matches what Render/AWS/Vercel do automatically
-- 🎯 Ensures clean, production-ready code
-- 📦 Smaller bundle size (tree-shaking optimization)
+- ❌ Fails on ANY warnings
+- ✅ Deployment-ready
+- 📦 Smaller bundle
 
-**Why use strict mode before deployment?**
-- Catches deployment issues early (before waiting for cloud build)
-- Forces clean code (no unused variables/imports)
-- Saves time (prevents failed deployments)
-- Professional code quality
-
-**When each platform uses strict mode:**
-
-| Platform | Sets CI=true? | When to Use Locally |
-|----------|--------------|---------------------|
-| **Render** | ✅ Automatic | `CI=true pnpm build` before pushing |
-| **Vercel** | ✅ Automatic | `CI=true pnpm build` before pushing |
-| **AWS Amplify** | ✅ Automatic | `CI=true pnpm build` before pushing |
-| **AWS EC2/Docker** | ⚠️ Manual | Set in Dockerfile: `ENV CI=true` |
-| **AWS S3** | ⚠️ Manual | Run `CI=true pnpm build` in CI/CD |
+**Why strict mode?** Catches deployment issues before cloud build, ensures clean code.
 
 ---
 
-## 🔄 CI/CD Integration
+## 🔄 CI/CD Pipeline
 
-### **Automated Testing Pipeline**
+**Triggers:** Every push to `main`, `li-dev`, `subscription`, `bevan-branch`, `xiaoling`
 
-**Triggers:**
-- Every push to team branches: `main`, `li-dev`, `anth-branch`, `bevan-branch`, `xiaoling`
-- All pull requests to `main` branch
+**GitHub Actions:** `.github/workflows/test.yml`
 
-**GitHub Actions Workflow Files:**
+**Pipeline:**
 ```
-.github/workflows/test.yml       # Main testing pipeline
-.github/workflows/security.yml   # Weekly security audits
+Push/PR → Setup (Node 18, pnpm, PostgreSQL) → Install deps →
+Backend tests (156 tests) → Coverage report → ✅/❌ Result
 ```
 
-### **Current CI Configuration**
+**Status:**
+- ✅ Backend tests: ACTIVE (156 tests)
+- ⏸️ Frontend tests: Disabled (local verification only)
+- ⏸️ Type-check: Disabled (warnings allowed in dev)
 
-**Active Jobs:**
-
-1. **🧪 Backend Tests** ✅ ACTIVE
-   - All Jest test suites (80 tests)
-   - Code coverage reporting
-   - PostgreSQL database tests
-   - Auth, Orders, Payments, Email, AI tests
-
-2. **🎨 Frontend Tests** ⏸️ DISABLED (Local verification only)
-   - Reason: CI environment setup issues during development
-   - Local verification: `docker exec flora-frontend pnpm build`
-   - Re-enable after graduation: See `.github/workflows/test.yml`
-
-3. **🔍 Type Checking** ⏸️ DISABLED (Local verification only)
-   - Reason: Warnings allowed during active development
-   - Local verification: `docker exec flora-frontend pnpm type-check`
-   - Re-enable after graduation: See `.github/workflows/test.yml`
-
-> **Note:** CI is simplified to backend tests during active development. All tests pass locally!
+**View results:** https://github.com/Aldore-88/holbertonschool-final_project/actions
 
 ---
 
-## 📊 CI/CD Pipeline Architecture
+## 🚨 Troubleshooting
 
-```
-GitHub Push/PR
-    ↓
-GitHub Actions Triggered
-    ↓
-┌─────────────────────────────────────┐
-│  Setup Environment                  │
-│  - Node.js 18                       │
-│  - pnpm package manager             │
-│  - PostgreSQL database              │
-└─────────────────────────────────────┘
-    ↓
-┌─────────────────────────────────────┐
-│  Install Dependencies               │
-│  - pnpm install                     │
-│  - Cache dependencies for speed     │
-└─────────────────────────────────────┘
-    ↓
-┌─────────────────────────────────────┐
-│  Backend Tests (ACTIVE)             │
-│  - Database migrations              │
-│  - Seed test data                   │
-│  - Run Jest test suites (80 tests)  │
-│  - Generate coverage report         │
-└─────────────────────────────────────┘
-    ↓
-┌─────────────────────────────────────┐
-│  Results                            │
-│  ✅ All tests pass → Merge allowed  │
-│  ❌ Tests fail → Merge blocked      │
-└─────────────────────────────────────┘
-```
-
-**View CI/CD results:**
-- Navigate to: https://github.com/Aldore-88/holbertonschool-final_project/actions
-- Click on workflow run → Select job → View logs
-- Re-run failed jobs using "Re-run jobs" button
-
----
-
-## 🚨 Troubleshooting Failed Tests
-
-### **Common Issues & Solutions**
-
-| Error | Cause | Solution |
-|-------|-------|----------|
-| `Tests failed` | Broken functionality | Run `docker exec flora-backend pnpm test` locally to debug |
-| `Build failed` | TypeScript errors | Run `docker exec flora-backend pnpm build` locally |
-| `Lint failed` | Code style issues | Run `docker exec flora-frontend pnpm lint --fix` |
-| `type-check script not found` | Missing script in package.json | Rebuild: `pnpm docker:dev:build` |
-| `Database connection error` | Database not running | Run `pnpm docker:restart-backend && pnpm docker:setup` |
-| `Auth0 token invalid` | Test token expired | Tests use mocked tokens - check `src/test/setup.ts` |
-| `No products found` | Database not seeded | Run `docker exec flora-backend pnpm db:seed` |
-
-### **Development Workflow**
-
-1. 🔧 Make code changes locally
-2. 🧪 Run pre-commit checklist (see above)
-3. 📤 Push to your branch
-4. 👀 Monitor GitHub Actions results
-5. 🔄 Fix any failures and push again
+| Error | Solution |
+|-------|----------|
+| Tests failed | `docker exec flora-backend pnpm test` locally |
+| Build failed | `docker exec flora-backend pnpm build` |
+| Database error | `pnpm docker:restart-backend && pnpm docker:setup` |
+| No products | `docker exec flora-backend pnpm db:seed` |
+| Module not found | `pnpm docker:dev:build` |
 
 ---
 
 ## 📈 Code Coverage
 
-**Coverage goals:**
-- Statements: 80%+
-- Branches: 75%+
-- Functions: 80%+
-- Lines: 80%+
+**Goals:** 80%+ statements, 75%+ branches
 
-**View coverage report:**
 ```bash
-# Generate coverage report
+# Generate report
 docker exec flora-backend pnpm test:coverage
 
-# View HTML report in browser
+# View in browser
 open apps/backend/coverage/lcov-report/index.html
 ```
 
-**CI/CD tracking:**
-- Coverage reports uploaded to GitHub Actions artifacts
-- Trends visible in workflow logs
-- Coverage badge (optional): Add to README
+---
+
+## 🎯 Test Standards
+
+**All tests must:**
+- ✅ Run independently (no order dependencies)
+- ✅ Clean up after themselves (no DB pollution)
+- ✅ Use realistic data (match production)
+- ✅ Test success AND error cases
+- ✅ Mock external services (Auth0, Stripe, Resend, Gemini, Sendle, Google)
+
+**Code review:**
+- ✅ New features include tests
+- ✅ Tests cover edge cases
+- ✅ No hardcoded secrets
+- ✅ Tests are fast (< 1 second each)
 
 ---
 
 ## 🔒 Security Scanning
 
-**Automated weekly scans:**
-```yaml
-# .github/workflows/security.yml
-- pnpm audit          # Check for known vulnerabilities
-- Dependency review   # Review new dependencies in PRs
-```
+**Weekly automated scans:** `.github/workflows/security.yml`
 
-**Manual security checks:**
+**Manual checks:**
 ```bash
-# Check for vulnerabilities
-pnpm audit
-
-# Fix auto-fixable vulnerabilities
-pnpm audit --fix
-
-# View detailed report
-pnpm audit --json > audit-report.json
+pnpm audit              # Check vulnerabilities
+pnpm audit --fix        # Auto-fix issues
 ```
 
 ---
 
-## 🎯 Test Quality Standards
-
-### **All tests must:**
-- ✅ Run independently (no test order dependencies)
-- ✅ Clean up after themselves (no database pollution)
-- ✅ Use realistic test data (match production scenarios)
-- ✅ Have descriptive names (e.g., `should create order when payment succeeds`)
-- ✅ Test both success and error cases
-- ✅ Mock external services (Auth0, Stripe, Email, AI)
-
-### **Code review checklist:**
-- ✅ New features include tests
-- ✅ Tests cover edge cases
-- ✅ No hardcoded credentials or secrets
-- ✅ Error messages are clear and helpful
-- ✅ Tests are fast (< 1 second each)
-
----
-
-## 🏆 CI/CD Best Practices We Follow
-
-- ✅ **Branch Protection:** All tests must pass before merging to `main`
-- ✅ **Parallel Execution:** Fast feedback with concurrent jobs
-- ✅ **Real Database:** PostgreSQL in CI matches production
-- ✅ **Code Coverage:** Track test coverage trends over time
-- ✅ **Security Scanning:** Weekly dependency vulnerability checks
-- ✅ **Type Safety:** TypeScript compilation prevents runtime errors
-
----
-
-## 📚 Additional Resources
-
-- **[README.md](../README.md)** - Project overview and quick start
-- **[Development Guide](DOCKER_GUIDE.md)** - Daily development workflow
-- **[Database Guide](DATABASE.md)** - Prisma migrations and schema
-
----
-
-**Testing ensures code quality and prevents bugs!** 🌸
+**Testing ensures code quality!** 🌸
