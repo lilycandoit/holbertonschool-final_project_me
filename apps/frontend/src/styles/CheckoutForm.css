@@ -595,6 +595,39 @@ select.form-input {
   font-family: "Outfit", sans-serif;
 }
 
+/* NEW: Subscription info banner */
+.subscription-info-banner {
+  background-color: #e8f5e9;
+  border: 2px solid #66bb6a;
+  border-radius: 10px;
+  padding: 1rem 1.5rem;
+  margin-bottom: 1.5rem;
+  display: flex;
+  align-items: flex-start;
+  gap: 1rem;
+}
+
+.subscription-info-banner .info-icon {
+  font-size: 1.5rem;
+  line-height: 1;
+}
+
+.subscription-info-banner strong {
+  display: block;
+  color: #2e7d32;
+  font-family: "EB Garamond", serif;
+  font-size: 1.1rem;
+  margin-bottom: 0.25rem;
+}
+
+.subscription-info-banner p {
+  margin: 0;
+  color: #1b5e20;
+  font-family: "Outfit", sans-serif;
+  font-size: 0.9rem;
+  line-height: 1.4;
+}
+
 .payment-security-notice {
   display: none;
 }

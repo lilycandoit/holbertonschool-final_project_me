@@ -31,11 +31,13 @@ interface UseCheckoutReturn {
   error: string | null;
   orderId: string | null;
   clientSecret: string | null;
+  setupSecret: string | null; // NEW: For saving payment method
+  hasSubscriptions: boolean; // NEW: Flag to indicate subscription items
   createOrderAndPaymentIntent: (
     formData: CheckoutFormData,
     cartItems: CartItem[]
   ) => Promise<void>;
-  handlePaymentSuccess: () => void;
+  handlePaymentSuccess: (paymentMethodId?: string) => Promise<void>; // NEW: Accept payment method ID
   handlePaymentError: (error: string) => void;
 }
 
@@ -44,6 +46,9 @@ export const useCheckout = (): UseCheckoutReturn => {
   const [error, setError] = useState<string | null>(null);
   const [orderId, setOrderId] = useState<string | null>(null);
   const [clientSecret, setClientSecret] = useState<string | null>(null);
+  const [setupSecret, setSetupSecret] = useState<string | null>(null); // NEW
+  const [hasSubscriptions, setHasSubscriptions] = useState(false); // NEW
+  const [createdSubscriptionIds, setCreatedSubscriptionIds] = useState<string[]>([]); // NEW: Track subscriptions
   const { user, getAccessToken } = useAuth();
 
   const createOrderAndPaymentIntent = async (
@@ -164,12 +169,18 @@ export const useCheckout = (): UseCheckoutReturn => {
       logger.log('Payment intent created successfully');
       totalClientSecret = paymentIntent.clientSecret;
 
+      // NEW: Set flag for subscriptions
+      setHasSubscriptions(subscriptionItems.length > 0);
+
       // Create subscription records for future recurring deliveries
       // (The first delivery is already included in the order above)
       if (subscriptionItems.length > 0) {
         if (!token) {
           throw new Error('SUBSCRIPTION_AUTH_REQUIRED');
         }
+
+        logger.log(`🔄 Creating ${subscriptionItems.length} subscription records`);
+        const subscriptionIds: string[] = [];
 
         for (const item of subscriptionItems) {
           // For subscriptions, PICKUP doesn't make sense (recurring deliveries), so default to STANDARD
@@ -200,8 +211,48 @@ export const useCheckout = (): UseCheckoutReturn => {
           logger.log(`🔄 Creating subscription record for future deliveries: ${item.product.name}`);
 
           // Create subscription record for future recurring deliveries
-          const subscription = await subscriptionService.createSubscription(subscriptionData, token);
-          logger.log(`Subscription created for ${item.product.name}:`, subscription);
+          const subscriptionResponse = await subscriptionService.createSubscription(subscriptionData, token);
+          logger.log(`Subscription created for ${item.product.name}:`, subscriptionResponse);
+
+          // Extract subscription ID from response (backend returns { success, data, message })
+          // The actual subscription is in the 'data' field
+          const subscriptionId = (subscriptionResponse as any).data?.id || (subscriptionResponse as any).id;
+          if (subscriptionId) {
+            subscriptionIds.push(subscriptionId);
+            logger.log(`✅ Stored subscription ID for payment method: ${subscriptionId}`);
+          } else {
+            logger.error('❌ Could not extract subscription ID from response:', subscriptionResponse);
+          }
+        }
+
+        // NEW: Create SetupIntent for saving payment method
+        logger.log('💳 Creating SetupIntent to save payment method for subscriptions');
+        try {
+          const setupIntentResponse = await fetch(
+            `${import.meta.env.VITE_API_URL}/subscriptions/setup-intent`,
+            {
+              method: 'POST',
+              headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json',
+              },
+            }
+          );
+
+          if (!setupIntentResponse.ok) {
+            throw new Error('Failed to create SetupIntent');
+          }
+
+          const setupData = await setupIntentResponse.json();
+          logger.log('✅ SetupIntent created:', setupData);
+          setSetupSecret(setupData.data.clientSecret);
+
+          // Store subscription IDs for payment method attachment after payment
+          setCreatedSubscriptionIds(subscriptionIds);
+        } catch (setupError) {
+          logger.error('⚠️ SetupIntent creation failed (non-fatal):', setupError);
+          // Non-fatal: subscriptions created but payment method not saved
+          // User can add payment method later
         }
       }
 
@@ -216,8 +267,52 @@ export const useCheckout = (): UseCheckoutReturn => {
     }
   };
 
-  const handlePaymentSuccess = () => {
-    logger.log('Payment successful!');
+  const handlePaymentSuccess = async (paymentMethodId?: string) => {
+    logger.log('💳 Payment successful!', paymentMethodId ? `Payment method: ${paymentMethodId}` : '');
+
+    // NEW: If subscriptions exist and we have a payment method, save it
+    if (createdSubscriptionIds.length > 0 && paymentMethodId) {
+      try {
+        const token = await getAccessToken();
+        if (!token) {
+          logger.warn('⚠️ No auth token - cannot save payment method to subscriptions');
+          return;
+        }
+
+        logger.log(`💾 Saving payment method ${paymentMethodId} to ${createdSubscriptionIds.length} subscriptions`);
+
+        // Update each subscription with the payment method
+        for (const subscriptionId of createdSubscriptionIds) {
+          try {
+            const updateResponse = await fetch(
+              `${import.meta.env.VITE_API_URL}/subscriptions/${subscriptionId}/payment-method`,
+              {
+                method: 'PATCH',
+                headers: {
+                  'Authorization': `Bearer ${token}`,
+                  'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ paymentMethodId }),
+              }
+            );
+
+            if (!updateResponse.ok) {
+              logger.error(`❌ Failed to save payment method to subscription ${subscriptionId}`);
+            } else {
+              logger.log(`✅ Payment method saved to subscription ${subscriptionId}`);
+            }
+          } catch (updateError) {
+            logger.error(`❌ Error updating subscription ${subscriptionId}:`, updateError);
+          }
+        }
+
+        logger.log('✅ All subscriptions updated with payment method');
+      } catch (error) {
+        logger.error('❌ Error saving payment methods:', error);
+        // Non-fatal: order completed, user can add payment method later
+      }
+    }
+
     // Redirect is handled by Stripe confirmPayment
   };
 
@@ -231,6 +326,8 @@ export const useCheckout = (): UseCheckoutReturn => {
     error,
     orderId,
     clientSecret,
+    setupSecret, // NEW
+    hasSubscriptions, // NEW
     createOrderAndPaymentIntent,
     handlePaymentSuccess,
     handlePaymentError,

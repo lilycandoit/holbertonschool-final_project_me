@@ -44,11 +44,12 @@ interface CheckoutFormProps {
   clientSecret?: string;
   orderId?: string;
   onSubmit: (data: CheckoutFormData) => void;
-  onPaymentSuccess: () => void;
+  onPaymentSuccess: (paymentMethodId?: string) => void; // UPDATED: Accept payment method ID
   onPaymentError: (error: string) => void;
   deliveryInfo: DeliveryInfo | null;
   selectedDeliveryType: "STANDARD" | "EXPRESS" | "PICKUP";
   onDeliveryTypeChange: (type: "STANDARD" | "EXPRESS" | "PICKUP") => void;
+  hasSubscriptions?: boolean; // NEW: Flag for subscription items
 }
 
 const CheckoutForm: React.FC<CheckoutFormProps> = ({
@@ -60,6 +61,7 @@ const CheckoutForm: React.FC<CheckoutFormProps> = ({
   deliveryInfo,
   selectedDeliveryType,
   onDeliveryTypeChange,
+  hasSubscriptions = false, // NEW
 }) => {
   const { login, user } = useAuth();
   const { state: cartState, setGiftMessage } = useCart();
@@ -704,6 +706,17 @@ const CheckoutForm: React.FC<CheckoutFormProps> = ({
           <h2 className="section-title">Payment</h2>
 
           <div className="payment-banner">All transactions are secure and encrypted.</div>
+
+          {/* NEW: Subscription indicator */}
+          {hasSubscriptions && (
+            <div className="subscription-info-banner">
+              <span className="info-icon">🔄</span>
+              <div>
+                <strong>Subscription items in cart</strong>
+                <p>Your payment method will be saved for automatic renewals.</p>
+              </div>
+            </div>
+          )}
 
           <Elements stripe={stripePromise} options={elementsOptions}>
             <PaymentForm orderId={orderId} onPaymentSuccess={onPaymentSuccess} onPaymentError={onPaymentError} />

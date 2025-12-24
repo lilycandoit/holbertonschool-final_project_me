@@ -65,6 +65,9 @@ router.patch('/:id/items', subscriptionController.modifySubscriptionItems);
 // WEEK 4: Get billing history
 router.get('/:id/billing-history', subscriptionController.getBillingHistory);
 
+// NEW: Update payment method (for post-checkout payment method saving)
+router.patch('/:id/payment-method', subscriptionController.updatePaymentMethod);
+
 // Admin routes (uncomment when admin middleware is ready)
 // router.get("/admin/stats", adminMiddleware, subscriptionController.getSubscriptionStats);
 

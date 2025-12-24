@@ -615,4 +615,58 @@ export class SubscriptionService {
 
     return billingEvents;
   }
+
+  // NEW: Update payment method for subscription (after successful checkout)
+  async updatePaymentMethod(
+    subscriptionId: string,
+    userId: string,
+    paymentMethodId: string
+  ) {
+    console.log(`💳 [SubscriptionService] Updating payment method for subscription ${subscriptionId}`);
+
+    // Verify subscription belongs to user
+    const subscription = await prisma.subscription.findUnique({
+      where: { id: subscriptionId }
+    });
+
+    if (!subscription) {
+      throw new Error('Subscription not found');
+    }
+
+    if (subscription.userId !== userId) {
+      throw new Error('Unauthorized: Subscription belongs to different user');
+    }
+
+    // Get or create Stripe customer for this user
+    const user = await prisma.user.findUnique({
+      where: { id: userId }
+    });
+
+    if (!user) {
+      throw new Error('User not found');
+    }
+
+    // Note: We assume the paymentMethodId is already attached to a Stripe customer
+    // This happens automatically when the user completes checkout
+    // We just need to store the reference in our database
+
+    const updatedSubscription = await prisma.subscription.update({
+      where: { id: subscriptionId },
+      data: {
+        stripePaymentMethodId: paymentMethodId,
+        // Note: stripeCustomerId should already be set during subscription creation
+      },
+      include: {
+        items: {
+          include: {
+            product: true
+          }
+        }
+      }
+    });
+
+    console.log(`✅ [SubscriptionService] Payment method updated successfully`);
+
+    return updatedSubscription;
+  }
 }

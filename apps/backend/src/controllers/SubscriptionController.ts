@@ -609,4 +609,48 @@ export class SubscriptionController {
       });
     }
   };
+
+  // NEW: Update payment method for subscription (after checkout)
+  updatePaymentMethod = async (
+    req: AuthRequest,
+    res: Response
+  ): Promise<void> => {
+    try {
+      const userId = req.user?.id;
+      if (!userId) {
+        res.status(401).json({ success: false, error: 'Unauthorized' });
+        return;
+      }
+
+      const { id: subscriptionId } = req.params;
+      const { paymentMethodId } = req.body;
+
+      if (!paymentMethodId) {
+        res.status(400).json({ success: false, error: 'Payment method ID required' });
+        return;
+      }
+
+      console.log(`💳 Updating payment method for subscription ${subscriptionId}`);
+      console.log(`   Payment method: ${paymentMethodId}`);
+
+      const subscription = await this.subscriptionService.updatePaymentMethod(
+        subscriptionId,
+        userId,
+        paymentMethodId
+      );
+
+      const response: ApiResponse = {
+        success: true,
+        data: subscription,
+        message: 'Payment method updated successfully'
+      };
+      res.json(response);
+    } catch (error) {
+      console.error('Update payment method error:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Failed to update payment method'
+      });
+    }
+  };
 }

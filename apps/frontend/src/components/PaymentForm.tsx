@@ -8,7 +8,7 @@ import '../styles/PaymentForm.css';
 
 interface PaymentFormProps {
   orderId: string;
-  onPaymentSuccess: () => void;
+  onPaymentSuccess: (paymentMethodId?: string) => void; // NEW: Accept payment method ID
   onPaymentError: (error: string) => void;
 }
 
@@ -33,22 +33,32 @@ const PaymentForm: React.FC<PaymentFormProps> = ({
     setErrorMessage('');
 
     try {
-      const { error } = await stripe.confirmPayment({
+      const { error, paymentIntent } = await stripe.confirmPayment({
         elements,
         confirmParams: {
           return_url: `${window.location.origin}/order-confirmation/${orderId}`,
         },
+        redirect: 'if_required', // NEW: Don't redirect if not required, so we can get payment method ID
       });
 
       if (error) {
         setErrorMessage(error.message || 'An error occurred');
         onPaymentError(error.message || 'Payment failed');
-      } else {
-        onPaymentSuccess();
+      } else if (paymentIntent) {
+        // NEW: Extract payment method ID from successful payment
+        const paymentMethodId = paymentIntent.payment_method as string;
+        console.log('✅ Payment successful! Payment method:', paymentMethodId);
+
+        // Pass payment method ID to parent for subscription attachment
+        await onPaymentSuccess(paymentMethodId);
+
+        // Now redirect to confirmation page
+        window.location.href = `${window.location.origin}/order-confirmation/${orderId}`;
       }
-    } catch (err: any) {
-      setErrorMessage(err.message || 'An unexpected error occurred');
-      onPaymentError(err.message);
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'An unexpected error occurred';
+      setErrorMessage(errorMessage);
+      onPaymentError(errorMessage);
     } finally {
       setIsProcessing(false);
     }

@@ -21,7 +21,9 @@ const CheckoutPage: React.FC = () => {
     orderId,
     isProcessing,
     error,
+    hasSubscriptions, // NEW
     createOrderAndPaymentIntent,
+    handlePaymentSuccess: handleCheckoutPaymentSuccess, // NEW: Rename to avoid conflict
   } = useCheckout();
 
   // Fetch delivery info on component mount
@@ -45,10 +47,14 @@ const CheckoutPage: React.FC = () => {
     );
   };
 
-  const handlePaymentSuccess = () => {
+  const handlePaymentSuccess = async (paymentMethodId?: string) => {
+    // NEW: Call checkout's payment success handler first (saves payment method)
+    await handleCheckoutPaymentSuccess(paymentMethodId);
+
+    // Then handle navigation (if not already redirected)
     if (orderId) {
       clearCart();
-      navigate(`/order-confirmation/${orderId}`);
+      // Note: PaymentForm.tsx now handles the redirect after payment method is saved
     }
   };
 
@@ -152,6 +158,7 @@ const CheckoutPage: React.FC = () => {
             deliveryInfo={deliveryInfo}
             selectedDeliveryType={selectedDeliveryType}
             onDeliveryTypeChange={setSelectedDeliveryType}
+            hasSubscriptions={hasSubscriptions}
           />
         </div>
 
