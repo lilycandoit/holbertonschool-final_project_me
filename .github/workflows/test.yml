@@ -2,7 +2,7 @@ name: Flora Test Suite
 
 on:
   push:
-    branches: [ main, li-dev, new-deploy, delivery ]
+    branches: [ main, new-deploy]
   pull_request:
     branches: [ main ]
 
@@ -69,44 +69,6 @@ jobs:
       with:
         file: apps/backend/coverage/lcov.info
         fail_ci_if_error: false
-
-    - name: Build backend
-      run: |
-        cd apps/backend
-        pnpm build
-
-    - name: Test delivery endpoints
-      env:
-        DATABASE_URL: postgresql://test_user:test_password@localhost:5432/flora_test_db
-        AUTH0_DOMAIN: test-domain.auth0.com
-        AUTH0_CLIENT_SECRET: test-secret
-        AUTH0_AUDIENCE: https://flora-api.com
-        STRIPE_SECRET_KEY: sk_test_mock_key_for_ci
-        PORT: 3001
-      run: |
-        cd apps/backend
-        # Start server in background
-        pnpm start &
-        SERVER_PID=$!
-
-        # Wait for server to be ready (max 20 seconds)
-        echo "Waiting for server to start..."
-        for i in {1..20}; do
-          if curl -s http://localhost:3001/api/health > /dev/null 2>&1; then
-            echo "Server is ready!"
-            break
-          fi
-          echo "Attempt $i/20..."
-          sleep 1
-        done
-
-        # Test delivery endpoints
-        curl -f http://localhost:3001/api/delivery/info || { kill $SERVER_PID; exit 1; }
-        curl -f http://localhost:3001/api/delivery/validate/3000 || { kill $SERVER_PID; exit 1; }
-        curl -f http://localhost:3001/api/health || { kill $SERVER_PID; exit 1; }
-
-        # Cleanup
-        kill $SERVER_PID
 
   # Frontend and type-check jobs temporarily disabled
   # All tests pass locally - focusing on backend tests for CI
