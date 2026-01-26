@@ -41,7 +41,7 @@
     "retry-subscriptions": "tsx src/scripts/retry-subscriptions.ts"
   },
   "dependencies": {
-    "@google/generative-ai": "^0.24.1",
+    "@google/genai": "^1.0.0",
     "@prisma/client": "^5.7.0",
     "@supabase/supabase-js": "^2.57.4",
     "@types/bcryptjs": "^2.4.6",

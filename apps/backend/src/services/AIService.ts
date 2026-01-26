@@ -1,5 +1,5 @@
 /// <reference lib="dom" />
-import { GoogleGenerativeAI } from "@google/generative-ai";
+import { GoogleGenAI } from "@google/genai";
 
 interface GenerateMessageRequest {
   to?: string;
@@ -11,23 +11,19 @@ interface GenerateMessageRequest {
 }
 
 export class AIService {
-  private genAI: GoogleGenerativeAI;
+  private ai: GoogleGenAI;
   private cache: Map<string, { message: string; timestamp: number }>;
   private CACHE_TTL = 3600000; // 1 hour cache
-  private readonly primaryModelName = "gemini-2.5-flash";
+  private readonly primaryModelName = "gemini-2.5-flash-lite";
   private readonly MAX_GENERATION_DURATION = 13500; // leave buffer under 15s frontend timeout
   private readonly fallbackModelNames = [
     // Only include models confirmed available for this API key (see /api/ai/models)
-    "gemini-2.5-flash-lite",
-    "gemini-2.0-flash",
-    "gemini-2.0-flash-001",
-    "gemini-2.0-flash-lite",
-    "gemini-2.0-flash-lite-001",
+    "gemini-2.5-flash",
   ];
-  private readonly REQUEST_OPTIONS = { apiVersion: "v1" as const };
 
   /**
    * List available models for the configured API key (diagnostics)
+   * Note: Uses REST API directly as the SDK doesn't expose a models.list() method
    */
   async listAvailableModels(): Promise<{ name: string; displayName?: string; supportedGenerationMethods?: string[] }[]> {
     const apiKey = process.env.GEMINI_API_KEY;
@@ -35,8 +31,7 @@ export class AIService {
       throw new Error("GEMINI_API_KEY is not configured");
     }
 
-    const apiVersion = "v1";
-    const url = `https://generativelanguage.googleapis.com/${apiVersion}/models?key=${apiKey}`;
+    const url = `https://generativelanguage.googleapis.com/v1/models?key=${apiKey}`;
     const resp = await fetch(url);
     if (!resp.ok) {
       const text = await resp.text();
@@ -68,11 +63,6 @@ export class AIService {
     'sympathetic': 'compassionate and comforting',
     'congratulatory': 'congratulatory and proud'
   };
-
-  private getModel(modelName: string) {
-    // Force v1 API for all model calls to avoid v1beta 404s on supported models
-    return this.genAI.getGenerativeModel({ model: modelName }, this.REQUEST_OPTIONS);
-  }
 
   private isTransientAIError(error: any): boolean {
     const msg = String(error?.message || "").toLowerCase();
@@ -128,12 +118,10 @@ export class AIService {
     }
   ): Promise<string> {
     const modelsToTry = [this.primaryModelName, ...this.fallbackModelNames];
-    const options = generationConfig ? { generationConfig } : undefined;
     const startTime = Date.now();
 
     for (let m = 0; m < modelsToTry.length; m++) {
       const modelName = modelsToTry[m];
-      const model = this.getModel(modelName);
 
       // Allow at most one retry per model to keep total time low
       const maxRetries = 1;
@@ -149,14 +137,22 @@ export class AIService {
           } else if (attempt > 0) {
             console.warn(`⚠️  Retrying model ${modelName} (attempt ${attempt + 1})`);
           }
-          const generationPromise = model.generateContent(prompt, options as any);
-          const result = await this.withTimeout(
+
+          // New SDK: use ai.models.generateContent with config object
+          const generationPromise = this.ai.models.generateContent({
+            model: modelName,
+            contents: prompt,
+            config: generationConfig,
+          });
+
+          const response = await this.withTimeout(
             generationPromise,
             remaining,
             "AI generation exceeded time limit"
           );
-          const response = result.response;
-          return response.text();
+
+          // New SDK: response.text is a property, not a method
+          return response.text ?? "";
         } catch (err: any) {
           const isTransient = this.isTransientAIError(err);
           const isUnsupported = this.isModelUnsupportedError(err);
@@ -230,7 +226,8 @@ export class AIService {
       console.warn("⚠️  GEMINI_API_KEY not found in environment variables. AI features will not work.");
     }
 
-    this.genAI = new GoogleGenerativeAI(apiKey || "");
+    // New SDK: pass apiKey as object property
+    this.ai = new GoogleGenAI({ apiKey: apiKey || "" });
     this.cache = new Map();
   }
 

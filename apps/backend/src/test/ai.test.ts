@@ -1,9 +1,9 @@
 import { Request, Response } from 'express';
-import { GoogleGenerativeAI } from '@google/generative-ai';
+import { GoogleGenAI } from '@google/genai';
 
-// Mock Google Generative AI BEFORE importing AIService
-jest.mock('@google/generative-ai');
-const mockGoogleAI = GoogleGenerativeAI as jest.MockedClass<typeof GoogleGenerativeAI>;
+// Mock Google GenAI SDK BEFORE importing AIService
+jest.mock('@google/genai');
+const mockGoogleGenAI = GoogleGenAI as jest.MockedClass<typeof GoogleGenAI>;
 
 // Set API key before importing service (to avoid singleton warning)
 process.env.GEMINI_API_KEY = 'test-api-key-12345';
@@ -22,19 +22,19 @@ afterAll(() => {
 });
 
 describe('AI Service and Controller Tests', () => {
-  let mockModel: any;
   let mockGenerateContent: jest.Mock;
 
   beforeEach(() => {
     jest.clearAllMocks();
 
     mockGenerateContent = jest.fn();
-    mockModel = {
-      generateContent: mockGenerateContent,
-    };
 
-    mockGoogleAI.mockImplementation(() => ({
-      getGenerativeModel: jest.fn().mockReturnValue(mockModel),
+    // New SDK structure: ai.models.generateContent({ model, contents, config })
+    // Response is an object with a .text property (not a method)
+    mockGoogleGenAI.mockImplementation(() => ({
+      models: {
+        generateContent: mockGenerateContent,
+      },
     } as any));
 
     process.env.GEMINI_API_KEY = 'test-api-key-12345';
@@ -63,9 +63,8 @@ describe('AI Service and Controller Tests', () => {
 
     beforeEach(() => {
       service = new (AIService as any)();
-      mockGenerateContent.mockResolvedValue({
-        response: { text: () => 'Test message' },
-      });
+      // New SDK: response.text is a property, not a method
+      mockGenerateContent.mockResolvedValue({ text: 'Test message' });
     });
 
     test('should cache generated messages', async () => {
@@ -97,9 +96,8 @@ describe('AI Service and Controller Tests', () => {
 
     beforeEach(() => {
       service = new (AIService as any)();
-      mockGenerateContent.mockResolvedValue({
-        response: { text: () => '  Beautiful flowers for you!  ' },
-      });
+      // New SDK: response.text is a property, not a method
+      mockGenerateContent.mockResolvedValue({ text: '  Beautiful flowers for you!  ' });
     });
 
     test('should generate message and trim whitespace', async () => {
@@ -122,7 +120,9 @@ describe('AI Service and Controller Tests', () => {
         tone: 'warm',
       });
 
-      const prompt = mockGenerateContent.mock.calls[0][0];
+      // New SDK: generateContent takes { model, contents, config }
+      const callArg = mockGenerateContent.mock.calls[0][0];
+      const prompt = callArg.contents;
       expect(prompt).toContain('Alice');
       expect(prompt).toContain('Bob');
       expect(prompt).toContain('birthday');
@@ -146,9 +146,8 @@ describe('AI Service and Controller Tests', () => {
     });
 
     test('should generate 3 suggestions', async () => {
-      mockGenerateContent.mockResolvedValue({
-        response: { text: () => '1. First\n2. Second\n3. Third' },
-      });
+      // New SDK: response.text is a property, not a method
+      mockGenerateContent.mockResolvedValue({ text: '1. First\n2. Second\n3. Third' });
 
       const suggestions = await service.generateMessageSuggestions('Roses');
       expect(suggestions).toHaveLength(3);
@@ -292,9 +291,8 @@ describe('AI Service and Controller Tests', () => {
 
     beforeEach(() => {
       service = new (AIService as any)();
-      mockGenerateContent.mockResolvedValue({
-        response: { text: () => 'Dear Alice, Lovely flowers! Love, Bob' },
-      });
+      // New SDK: response.text is a property, not a method
+      mockGenerateContent.mockResolvedValue({ text: 'Dear Alice, Lovely flowers! Love, Bob' });
     });
 
     test('should handle concurrent requests with caching', async () => {
