@@ -36,8 +36,6 @@ jobs:
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
-        with:
-          version: 8
 
       # 3. Set up Docker Buildx (for efficient builds)
       - name: Set up Docker Buildx
